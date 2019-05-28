@@ -1,0 +1,8 @@
+[package]
+name = "warnalyzer"
+version = "0.1.0"
+authors = ["est31 <MTest31@outlook.com>"]
+edition = "2015"
+
+[dependencies]
+serde = "1.0"
