@@ -20,6 +20,6 @@ fn main() -> Result<(), StrErr> {
 	println!("{}", file_name);
 	let file = std::fs::File::open(file_name)?;
 	let file_parsed :CrateSaveAnalysis = serde_json::from_reader(file)?;
-	println!("{:?}", file_parsed);
+	println!("{:#?}", file_parsed);
 	Ok(())
 }
