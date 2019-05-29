@@ -1,6 +1,6 @@
-use library_thing::UsedStruct;
+use library_thing::{UsedStruct, used_fn};
 
 fn main() {
 	let used = UsedStruct;
-	println!("{:?}", used);
+	println!("{:?}{}", used, used_fn());
 }
