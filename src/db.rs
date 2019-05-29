@@ -112,9 +112,13 @@ impl AnalysisDb {
 		}
 		let mut unused_defs = Vec::new();
 		for (did, d) in self.defs.iter() {
-			if !used_defs.contains(&did) {
-				unused_defs.push(d);
+			if used_defs.contains(&did) {
+				continue;
 			}
+			if d.name.starts_with("_") {
+				continue;
+			}
+			unused_defs.push(d);
 		}
 		unused_defs.into_iter()
 	}
