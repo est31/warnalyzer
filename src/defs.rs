@@ -9,13 +9,13 @@ pub struct CrateId {
 	pub disambiguator :CrateDisambiguator,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ItemId {
-	pub krate :u32,
+#[derive(Deserialize, Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub struct ItemId<KrateId> {
+	pub krate :KrateId,
 	pub index :u32,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Span {
 	pub file_name :String,
 	pub line_start :u32,
@@ -37,23 +37,23 @@ pub struct Prelude {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Def {
+pub struct Def<KrateId> {
 	pub kind :String,
 	pub name :String,
-	pub id :ItemId,
+	pub id :ItemId<KrateId>,
 	pub span :Span,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Ref {
+pub struct Ref<KrateId> {
 	pub kind :String,
-	pub ref_id :ItemId,
+	pub ref_id :ItemId<KrateId>,
 	pub span :Span,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct CrateSaveAnalysis {
 	pub prelude :Prelude,
-	pub defs :Vec<Def>,
-	pub refs :Vec<Ref>,
+	pub defs :Vec<Def<u32>>,
+	pub refs :Vec<Ref<u32>>,
 }
