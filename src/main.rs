@@ -19,6 +19,9 @@ fn main() -> Result<(), StrErr> {
 	let path = std::env::args().nth(1).expect("please specify path");
 	println!("{}", path);
 	let db = db::AnalysisDb::from_path(&path)?;
+	for ud in db.get_unused_defs() {
+		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
+	}
 
 	Ok(())
 }

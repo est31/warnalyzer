@@ -64,9 +64,10 @@ impl AnalysisDb {
 	pub fn from_path(path :&str) -> Result<Self, StrErr> {
 		let path = Path::new(path);
 		let leaf_parsed = parse_save_analysis(&path)?;
-		let disambiguators = leaf_parsed.prelude.external_crates.iter()
+		let mut disambiguators = leaf_parsed.prelude.external_crates.iter()
 			.map(|v| v.id.disambiguator)
 			.collect::<HashSet<_>>();
+		disambiguators.insert(leaf_parsed.prelude.crate_id.disambiguator);
 		let dir_path = path.parent().unwrap();
 		let mut crates = HashMap::new();
 		for entry in std::fs::read_dir(dir_path)? {
@@ -78,6 +79,7 @@ impl AnalysisDb {
 			if !disambiguators.contains(&disambiguator) {
 				continue;
 			}
+			println!("{}", path.to_str().unwrap());
 			crates.insert(disambiguator, file_parsed);
 		}
 		let mut defs = HashMap::new();
@@ -94,30 +96,26 @@ impl AnalysisDb {
 				refs.insert(v.ref_id, v);
 			}
 		}
-		/*
-		let defs = crates.iter()
-			.map(|(_dis, c)| c.defs.iter().map(|v| (&c.prelude, v)))
-			.flatten()
-			.map(|(prelude, v)| {
-				let v = v.clone_map(|w| prelude.disambiguator_for_id(*w));
-				(v.id, v)
-			})
-			.collect::<HashMap<_, _>>();
-		let refs = crates.iter()
-			.map(|(_dis, c)| c.refs.iter().map(|v| (&c.prelude, v)))
-			.flatten()
-			.map(|(prelude, v)| {
-				let v = v.clone_map(|w| prelude.disambiguator_for_id(*w));
-				(v.ref_id, v)
-			})
-			.collect::<HashMap<_, _>>();
-		*/
+		println!("{:#?}", defs);
+		println!("{:#?}", refs);
 
-		println!("{:#?}", leaf_parsed);
 		Ok(AnalysisDb {
 			crates,
 			defs,
 			refs,
 		})
+	}
+	pub fn get_unused_defs(&self) -> impl Iterator<Item=&AbsDef> {
+		let mut used_defs = HashSet::new();
+		for (rid, r) in self.refs.iter() {
+			used_defs.insert(r.ref_id);
+		}
+		let mut unused_defs = Vec::new();
+		for (did, d) in self.defs.iter() {
+			if !used_defs.contains(&did) {
+				unused_defs.push(d);
+			}
+		}
+		unused_defs.into_iter()
 	}
 }
