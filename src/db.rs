@@ -16,16 +16,24 @@ pub struct AnalysisDb {
 	refs :HashMap<AbsItemId, AbsRef>,
 }
 
+impl<T> ItemId<T> {
+	fn clone_map<U>(&self, f :impl FnOnce(&T) -> U) -> ItemId<U> {
+		ItemId {
+			krate : f(&self.krate),
+			index : self.index,
+		}
+	}
+}
+
 impl<T> Def<T> {
-	fn clone_map<U>(&self, f :impl FnOnce(&T) -> U) -> Def<U> {
+	fn clone_map<U>(&self, f :impl Fn(&T) -> U) -> Def<U> {
 		Def {
 			kind : self.kind.clone(),
 			name : self.name.clone(),
-			id : ItemId {
-				krate : f(&self.id.krate),
-				index : self.id.index,
-			},
+			id : self.id.clone_map(&f),
 			span : self.span.clone(),
+			parent : self.parent.as_ref().map(|v| v.clone_map(&f)),
+			decl_id : self.decl_id.as_ref().map(|v| v.clone_map(&f)),
 		}
 	}
 }
@@ -136,6 +144,11 @@ impl AnalysisDb {
 			// https://github.com/rust-lang/rust/issues/61302
 			if d.kind == "TupleVariant" {
 				continue;
+			}
+			if let Some(decl_id) = d.decl_id {
+				if used_defs.contains(&decl_id) {
+					continue;
+				}
 			}
 			unused_defs.push(d);
 		}

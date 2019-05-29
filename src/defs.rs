@@ -49,6 +49,8 @@ pub struct Def<KrateId> {
 	pub name :String,
 	pub id :ItemId<KrateId>,
 	pub span :Span,
+	pub parent :Option<ItemId<KrateId>>,
+	pub decl_id :Option<ItemId<KrateId>>,
 }
 
 #[derive(Deserialize, Debug)]
