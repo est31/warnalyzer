@@ -174,6 +174,7 @@ impl AnalysisDb {
 			}
 			unused_defs.push(d);
 		}
+		unused_defs.sort();
 		unused_defs.into_iter()
 	}
 }

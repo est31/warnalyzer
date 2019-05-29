@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::cmp::Ordering;
 
 #[derive(Deserialize, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct CrateDisambiguator(pub u64, pub u64);
@@ -15,7 +16,7 @@ pub struct ItemId<KrateId> {
 	pub index :u32,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
 	pub file_name :String,
 	pub line_start :u32,
@@ -43,7 +44,7 @@ pub struct Prelude {
 	pub external_crates :Vec<ExternalCrate>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 pub struct Def<KrateId> {
 	pub kind :String,
 	pub name :String,
@@ -51,6 +52,19 @@ pub struct Def<KrateId> {
 	pub span :Span,
 	pub parent :Option<ItemId<KrateId>>,
 	pub decl_id :Option<ItemId<KrateId>>,
+}
+
+
+impl<Id :Eq> Ord for Def<Id> {
+	fn cmp(&self, other :&Self) -> Ordering {
+		(&self.span, &self.name).cmp(&(&other.span, &other.name))
+	}
+}
+
+impl<Id :Eq> PartialOrd for Def<Id> {
+	fn partial_cmp(&self, other :&Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
 }
 
 #[derive(Deserialize, Debug)]
