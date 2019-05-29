@@ -94,9 +94,10 @@ impl AnalysisDb {
 				continue;
 			}
 
-			// Ignore stuff from crates.io.
+			// Ignore stuff from crates.io or git deps.
 			// Just focus on path deps for now.
-			if metadata.compilation.directory.contains(".cargo/registry/src/github.com") {
+			if metadata.compilation.directory.contains(".cargo/registry/src/github.com") ||
+					metadata.compilation.directory.contains(".cargo/git/") {
 				println!("i> {}", path.to_str().unwrap());
 				continue;
 			}
