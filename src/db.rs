@@ -119,8 +119,8 @@ impl AnalysisDb {
 				refs.insert(v.ref_id, v);
 			}
 		}
-		println!("{:#?}", defs);
-		println!("{:#?}", refs);
+		//println!("{:#?}", defs);
+		//println!("{:#?}", refs);
 
 		Ok(AnalysisDb {
 			defs,
