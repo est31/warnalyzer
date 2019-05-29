@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+	"high-level-library",
+	"library-thing",
+	"binary-thing",
+]

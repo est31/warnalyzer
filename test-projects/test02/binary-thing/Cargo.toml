@@ -1,0 +1,8 @@
+[package]
+name = "binary-thing"
+version = "0.1.0"
+authors = ["est31 <MTest31@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+library-thing = { path = "../library-thing" }
