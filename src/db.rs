@@ -118,6 +118,12 @@ impl AnalysisDb {
 			if d.name.starts_with("_") {
 				continue;
 			}
+			// There is an id mismatch bug in rustc's save-analysis
+			// output.
+			// https://github.com/rust-lang/rust/issues/61302
+			if d.kind == "TupleVariant" {
+				continue;
+			}
 			unused_defs.push(d);
 		}
 		unused_defs.into_iter()
