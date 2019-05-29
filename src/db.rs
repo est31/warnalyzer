@@ -12,6 +12,7 @@ pub type AbsDef = Def<CrateDisambiguator>;
 pub type AbsRef = Ref<CrateDisambiguator>;
 
 pub struct AnalysisDb {
+	covered_crates :HashSet<CrateDisambiguator>,
 	defs :HashMap<AbsItemId, AbsDef>,
 	refs :HashMap<AbsItemId, AbsRef>,
 }
@@ -84,6 +85,7 @@ impl AnalysisDb {
 		disambiguators.insert(leaf_parsed.prelude.crate_id.disambiguator);
 		let dir_path = path.parent().unwrap();
 		let mut crates = HashMap::new();
+		let mut covered_crates = HashSet::new();
 		for entry in std::fs::read_dir(dir_path)? {
 			let entry = entry?;
 			let path = entry.path();
@@ -104,6 +106,7 @@ impl AnalysisDb {
 			println!("p> {}", path.to_str().unwrap());
 			let file_parsed = parse_save_analysis(&path)?;
 			crates.insert(disambiguator, file_parsed);
+			covered_crates.insert(disambiguator);
 		}
 		let mut defs = HashMap::new();
 		for (_dis, c) in crates.iter() {
@@ -123,6 +126,7 @@ impl AnalysisDb {
 		//println!("{:#?}", refs);
 
 		Ok(AnalysisDb {
+			covered_crates,
 			defs,
 			refs,
 		})
@@ -154,7 +158,11 @@ impl AnalysisDb {
 			// Record implementations of traits etc as used if the trait's
 			// function is used
 			if let Some(decl_id) = d.decl_id {
-				if used_defs.contains(&decl_id) {
+				// Whether the trait's fn is used somewhere
+				let fn_in_trait_used = used_defs.contains(&decl_id);
+				// Whether the trait is from another crate
+				let fn_in_trait_foreign = !self.covered_crates.contains(&decl_id.krate);
+				if fn_in_trait_used || fn_in_trait_foreign {
 					continue;
 				}
 			}
