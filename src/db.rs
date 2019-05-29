@@ -107,7 +107,7 @@ impl AnalysisDb {
 	}
 	pub fn get_unused_defs(&self) -> impl Iterator<Item=&AbsDef> {
 		let mut used_defs = HashSet::new();
-		for (rid, r) in self.refs.iter() {
+		for (_rid, r) in self.refs.iter() {
 			used_defs.insert(r.ref_id);
 		}
 		let mut unused_defs = Vec::new();
