@@ -1,15 +1,18 @@
 use serde::Deserialize;
 
+#[derive(Deserialize, Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub struct CrateDisambiguator(pub u64, pub u64);
+
 #[derive(Deserialize, Debug)]
 pub struct CrateId {
-	name :String,
-	disambiguator :(u64, u64),
+	pub name :String,
+	pub disambiguator :CrateDisambiguator,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ItemId {
-	krate :u32,
-	index :u32,
+	pub krate :u32,
+	pub index :u32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -23,8 +26,8 @@ pub struct Span {
 
 #[derive(Deserialize, Debug)]
 pub struct ExternalCrate {
-	num :u32,
-	id :CrateId,
+	pub num :u32,
+	pub id :CrateId,
 }
 
 #[derive(Deserialize, Debug)]

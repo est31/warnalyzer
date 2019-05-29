@@ -2,8 +2,8 @@ extern crate serde;
 extern crate serde_json;
 
 mod defs;
+mod db;
 
-use defs::CrateSaveAnalysis;
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -16,10 +16,9 @@ impl<T :Display> From<T> for StrErr {
 }
 
 fn main() -> Result<(), StrErr> {
-	let file_name = std::env::args().nth(1).expect("please specify file name");
-	println!("{}", file_name);
-	let file = std::fs::File::open(file_name)?;
-	let file_parsed :CrateSaveAnalysis = serde_json::from_reader(file)?;
-	println!("{:#?}", file_parsed);
+	let path = std::env::args().nth(1).expect("please specify path");
+	println!("{}", path);
+	let db = db::AnalysisDb::from_path(&path)?;
+
 	Ok(())
 }
