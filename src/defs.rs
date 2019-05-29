@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct CrateId {
 	name :String,
+	disambiguator :(u64, u64),
 }
 
 #[derive(Deserialize, Debug)]
