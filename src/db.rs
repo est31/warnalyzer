@@ -59,7 +59,6 @@ fn parse_save_analysis(path :&Path) -> Result<CrateSaveAnalysis, StrErr> {
 }
 fn parse_analysis_metadata(path :&Path) -> Result<CrateSaveAnalysisMetadata, StrErr> {
 	let file = std::fs::read_to_string(path)?;
-	//let meta_str = json_query::run("{compilation: .compilation, prelude: .prelude }", &file)?;
 	let file_parsed :CrateSaveAnalysisMetadata = serde_json::from_str(&file)?;
 	Ok(file_parsed)
 }
