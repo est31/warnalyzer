@@ -27,7 +27,7 @@ pub struct Span {
 impl Span {
 	/// Obtains file_name.rs:10:32 like format of the span
 	pub fn display_str(&self) -> String {
-		format!("{}:{}:{}", self.file_name, self.line_start, self.line_end)
+		format!("{}:{}:{}", self.file_name, self.line_start, self.column_start)
 	}
 }
 
