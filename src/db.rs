@@ -11,7 +11,6 @@ pub type AbsDef = Def<CrateDisambiguator>;
 pub type AbsRef = Ref<CrateDisambiguator>;
 
 pub struct AnalysisDb {
-	crates :HashMap<CrateDisambiguator, CrateSaveAnalysis>,
 	defs :HashMap<AbsItemId, AbsDef>,
 	refs :HashMap<AbsItemId, AbsRef>,
 }
@@ -107,7 +106,6 @@ impl AnalysisDb {
 		println!("{:#?}", refs);
 
 		Ok(AnalysisDb {
-			crates,
 			defs,
 			refs,
 		})
