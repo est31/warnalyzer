@@ -1,4 +1,5 @@
-use defs::{CrateSaveAnalysis, CrateDisambiguator};
+use defs::{CrateSaveAnalysis, CrateDisambiguator,
+	CrateSaveAnalysisMetadata};
 use StrErr;
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
@@ -47,6 +48,12 @@ fn parse_save_analysis(path :&Path) -> Result<CrateSaveAnalysis, StrErr> {
 	let file_parsed :CrateSaveAnalysis = serde_json::from_reader(file)?;
 	Ok(file_parsed)
 }
+fn parse_analysis_metadata(path :&Path) -> Result<CrateSaveAnalysisMetadata, StrErr> {
+	let file = std::fs::read_to_string(path)?;
+	//let meta_str = json_query::run("{compilation: .compilation, prelude: .prelude }", &file)?;
+	let file_parsed :CrateSaveAnalysisMetadata = serde_json::from_str(&file)?;
+	Ok(file_parsed)
+}
 
 impl Prelude {
 	fn disambiguator_for_id(&self, id :u32) -> CrateDisambiguator {
@@ -62,7 +69,7 @@ impl Prelude {
 impl AnalysisDb {
 	pub fn from_path(path :&str) -> Result<Self, StrErr> {
 		let path = Path::new(path);
-		let leaf_parsed = parse_save_analysis(&path)?;
+		let leaf_parsed = parse_analysis_metadata(&path)?;
 		let mut disambiguators = leaf_parsed.prelude.external_crates.iter()
 			.map(|v| v.id.disambiguator)
 			.collect::<HashSet<_>>();
@@ -72,8 +79,8 @@ impl AnalysisDb {
 		for entry in std::fs::read_dir(dir_path)? {
 			let entry = entry?;
 			let path = entry.path();
-			let file_parsed = parse_save_analysis(&path)?;
-			let disambiguator = file_parsed.prelude.crate_id.disambiguator;
+			let metadata = parse_analysis_metadata(&path)?;
+			let disambiguator = metadata.prelude.crate_id.disambiguator;
 			// Ignore results from other compile runs
 			if !disambiguators.contains(&disambiguator) {
 				continue;
@@ -81,10 +88,11 @@ impl AnalysisDb {
 
 			// Ignore stuff from crates.io.
 			// Just focus on path deps for now.
-			if file_parsed.compilation.directory.contains(".cargo/registry/src/github.com") {
+			if metadata.compilation.directory.contains(".cargo/registry/src/github.com") {
 				println!("i> {}", path.to_str().unwrap());
 				continue;
 			}
+			let file_parsed = parse_save_analysis(&path)?;
 			println!("p> {}", path.to_str().unwrap());
 			crates.insert(disambiguator, file_parsed);
 		}

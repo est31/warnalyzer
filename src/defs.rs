@@ -70,3 +70,9 @@ pub struct CrateSaveAnalysis {
 	pub defs :Vec<Def<u32>>,
 	pub refs :Vec<Ref<u32>>,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct CrateSaveAnalysisMetadata {
+	pub compilation :Compilation,
+	pub prelude :Prelude,
+}
