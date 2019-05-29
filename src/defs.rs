@@ -59,7 +59,13 @@ pub struct Ref<KrateId> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct Compilation {
+	pub directory :String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct CrateSaveAnalysis {
+	pub compilation :Compilation,
 	pub prelude :Prelude,
 	pub defs :Vec<Def<u32>>,
 	pub refs :Vec<Ref<u32>>,

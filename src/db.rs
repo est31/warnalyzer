@@ -75,11 +75,18 @@ impl AnalysisDb {
 			let path = entry.path();
 			let file_parsed = parse_save_analysis(&path)?;
 			let disambiguator = file_parsed.prelude.crate_id.disambiguator;
-			// Ignore results from prior compile runs
+			// Ignore results from other compile runs
 			if !disambiguators.contains(&disambiguator) {
 				continue;
 			}
-			println!("{}", path.to_str().unwrap());
+
+			// Ignore stuff from crates.io.
+			// Just focus on path deps for now.
+			if file_parsed.compilation.directory.contains(".cargo/registry/src/github.com") {
+				println!("i> {}", path.to_str().unwrap());
+				continue;
+			}
+			println!("p> {}", path.to_str().unwrap());
 			crates.insert(disambiguator, file_parsed);
 		}
 		let mut defs = HashMap::new();
