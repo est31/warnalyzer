@@ -6,6 +6,18 @@ The `dead_code` lint family of rustc is limited to one crate only and thus can't
 
 This tool, warnalyzer, provides unused code detection functionality for such multi-crate projects.
 
+### Usage
+
+* Navigate to the project you want to analyze and run `RUSTFLAGS="-Z save-analysis" cargo +nightly check`.
+* This command puts save analysis data into a path like `target/debug/deps/save-analysis/cratename-longhash.json`.
+* Then, from the warnalyzer repo, do `cargo run <path-to-json>`
+* It will list any items that it thinks weren't used.
+* Make sure that you chose the json of the leaf crate. Using any other json file won't give you the full list of unused code.
+
+### Requirements
+
+Nightly rust is required, as [save-analysis is unstable](https://github.com/rust-lang/rust/issues/43606).
+
 ### Known bugs
 
 It's still early on. There are a couple of bugs of the tool.
@@ -14,7 +26,7 @@ It's still early on. There are a couple of bugs of the tool.
 
 These are the false positives known to me:
 
-* Any usage by macros is not seen by the tool
+* Any usage by macros is not seen by the tool (save-analysis [has bad macro support](https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487))
 * Proc macro functions are not recognized as such and therefore get reported
 * `#[allow(dead_code)]` has no effect
 
