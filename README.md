@@ -6,15 +6,22 @@ The `dead_code` lint family of rustc is limited to one crate only and thus can't
 
 This tool, warnalyzer, provides unused code detection functionality for such multi-crate projects.
 
-### Known false-positives
+### Known bugs
 
-It's still early on. There are a couple of false positives that the tool reports:
+It's still early on. There are a couple of bugs of the tool.
+
+#### false-positives
+
+These are the false positives known to me:
 
 * Any usage by macros is not seen by the tool
-* Enum variants are not recognized (worked around in the code but [it would be cool to have the rustc bug fixed](https://github.com/rust-lang/rust/issues/61302))
-* Implementations of a trait from a crates.io crate and then passing it to a function that requires it (I have a possible workaround in mind)
 * Proc macro functions are not recognized as such and therefore get reported
 * `#[allow(dead_code)]` has no effect
+
+### Other bugs
+
+* Enum variants are not recognized (worked around in the code but [it would be cool to have the rustc bug fixed](https://github.com/rust-lang/rust/issues/61302))
+* No recursion like the `dead_code` lint of rustc, so if something only gets used by unused code, it doesn't get reported while it should.
 
 ### License
 [license]: #license
