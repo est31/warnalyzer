@@ -101,8 +101,8 @@ impl AnalysisDb {
 				println!("i> {}", path.to_str().unwrap());
 				continue;
 			}
-			let file_parsed = parse_save_analysis(&path)?;
 			println!("p> {}", path.to_str().unwrap());
+			let file_parsed = parse_save_analysis(&path)?;
 			crates.insert(disambiguator, file_parsed);
 		}
 		let mut defs = HashMap::new();
