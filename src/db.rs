@@ -136,7 +136,12 @@ impl AnalysisDb {
 			if used_defs.contains(&did) {
 				continue;
 			}
+			// Anything starting with _ can be unused without warning.
 			if d.name.starts_with("_") {
+				continue;
+			}
+			// Self may be unused without warning.
+			if d.kind == "Local" && d.name == "self" {
 				continue;
 			}
 			// There is an id mismatch bug in rustc's save-analysis
@@ -145,8 +150,16 @@ impl AnalysisDb {
 			if d.kind == "TupleVariant" {
 				continue;
 			}
+			// Record implementations of traits etc as used if the trait's
+			// function is used
 			if let Some(decl_id) = d.decl_id {
 				if used_defs.contains(&decl_id) {
+					continue;
+				}
+			}
+			if let Some(parent) = d.parent.as_ref().and_then(|p| self.defs.get(p)) {
+				// It seems that rustc doesn't emit any refs for assoc. types
+				if parent.kind == "Trait" && d.kind == "Type" {
 					continue;
 				}
 			}
