@@ -27,7 +27,6 @@ It's still early on. There are a couple of bugs of the tool.
 These are the false positives known to me:
 
 * Any usage by macros is not seen by the tool (save-analysis [has bad macro support](https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487))
-* Proc macro functions (#[proc_macro] and #[proc_macro_attribute]) are not recognized as such and therefore get reported
 * `#[allow(dead_code)]` has no effect
 
 ### Other bugs
