@@ -83,9 +83,10 @@ impl MuteSpansCache {
 fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 	use syn::parse::Parser;
 	use syn::parse::ParseStream;
-	use syn::{Attribute, Item, Macro};
+	use syn::{Attribute, Item, Macro, ItemFn, Ident};
 	use syn::spanned::Spanned;
-	use proc_macro2::LineColumn;
+	use syn::visit::{visit_item, self};
+	use proc_macro2::{LineColumn, Span};
 	struct Visitor<'a> {
 		mute_spans :&'a mut Vec<MuteSpan>,
 	}
@@ -113,6 +114,32 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 			let (start, end) = span_min_max((start, end), m.tts.clone().into_iter());
 
 			self.mute_spans.push((start, end));
+		}
+		fn visit_item_fn(&mut self, i :&'ast ItemFn) {
+			let fn_name = &i.ident;
+			let has_proc_macr_attr = i.attrs.iter()
+				.any(|a| {
+					let proc_macro_id = Ident::new("proc_macro", Span::call_site());
+					let proc_macro_der_id = Ident::new("proc_macro_derive", Span::call_site());
+					let proc_macro_attr_id = Ident::new("proc_macro_attribute", Span::call_site());
+					let p = &a.path;
+					let is_proc_macro = p.is_ident(proc_macro_id) ||
+						p.is_ident(proc_macro_der_id) ||
+						p.is_ident(proc_macro_attr_id);
+					if is_proc_macro {
+						error!("Found proc macro {}", fn_name);
+					}
+					is_proc_macro
+				});
+			if has_proc_macr_attr {
+				let sp = i.decl.output.span();
+				let start = lc(sp.start());
+				let end = lc(sp.end());
+				let (start, end) = span_min_max((start, end),
+					i.attrs.clone().into_iter());
+				self.mute_spans.push((start, end));
+			}
+			visit::visit_item_fn(self, i);
 		}
 		fn visit_attribute(&mut self, a :&'ast Attribute) {
 			let sp = a.span();
