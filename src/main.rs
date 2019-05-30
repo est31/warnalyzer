@@ -3,6 +3,9 @@ extern crate serde_json;
 extern crate syn;
 extern crate proc_macro2;
 extern crate intervaltree;
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
 
 mod defs;
 mod db;
@@ -19,8 +22,9 @@ impl<T :Display> From<T> for StrErr {
 }
 
 fn main() -> Result<(), StrErr> {
+	pretty_env_logger::init();
 	let path = std::env::args().nth(1).expect("please specify path");
-	println!("{}", path);
+	info!("{}", path);
 	let db = db::AnalysisDb::from_path(&path)?;
 	for ud in db.get_unused_defs() {
 		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);

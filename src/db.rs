@@ -66,10 +66,10 @@ fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> 
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
 		if start <= needle_start
 				&& end >= needle_end {
-			/*println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
+			info!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
 				needle_span.file_name,
 				needle_span.line_start, needle_span.column_start,
-				start, end);*/
+				start, end);
 			return true;
 		}
 	}
@@ -246,10 +246,10 @@ impl AnalysisDb {
 			// Just focus on path deps for now.
 			if metadata.compilation.directory.contains(".cargo/registry/src/github.com") ||
 					metadata.compilation.directory.contains(".cargo/git/") {
-				println!("i> {}", path.to_str().unwrap());
+				info!("i> {}", path.to_str().unwrap());
 				continue;
 			}
-			println!("p> {}", path.to_str().unwrap());
+			info!("p> {}", path.to_str().unwrap());
 			let file_parsed = parse_save_analysis(&path)?;
 			crates.insert(disambiguator, file_parsed);
 			covered_crates.insert(disambiguator);
