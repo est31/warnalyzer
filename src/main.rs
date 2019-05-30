@@ -2,6 +2,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate syn;
 extern crate proc_macro2;
+extern crate intervaltree;
 
 mod defs;
 mod db;

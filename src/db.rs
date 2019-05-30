@@ -2,7 +2,9 @@ use defs::{CrateSaveAnalysis, CrateDisambiguator,
 	CrateSaveAnalysisMetadata};
 use StrErr;
 use std::path::{Path, PathBuf};
+use std::iter::FromIterator;
 use std::collections::{HashSet, HashMap};
+use intervaltree::IntervalTree;
 
 use defs::{Def, Ref, ItemId, Prelude};
 
@@ -27,10 +29,34 @@ impl<T> ItemId<T> {
 	}
 }
 
-type MacroSpans = Vec<((usize, usize), (usize, usize))>;
+struct MacroSpans {
+	inner :IntervalTree<(usize, usize), MacroSpan>,
+}
+
+type MacroSpan = ((usize, usize), (usize, usize));
+
+impl MacroSpans {
+	fn search(&self, needle :&crate::defs::Span) -> impl Iterator<Item=MacroSpan> + '_ {
+		let needle_start = (needle.line_start as usize, needle.column_start as usize);
+		let needle_end = (needle.line_end as usize, needle.column_end as usize);
+		self.inner.query(needle_start..needle_end).map(|el|el.value)
+	}
+}
+impl FromIterator<MacroSpan> for MacroSpans {
+	fn from_iter<T: IntoIterator<Item = MacroSpan>>(iter :T) -> Self {
+		Self {
+			inner : <IntervalTree<_,_> as FromIterator<_>>::from_iter(iter.into_iter().map(|v| {
+				intervaltree::Element {
+					range : (v.0..v.1),
+					value : v,
+				}
+			}))
+		}
+	}
+}
 
 fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> bool {
-	for &(start, end) in macro_spans.iter() {
+	for (start, end) in macro_spans.search(needle_span) {
 		let needle_start = (needle_span.line_start as usize, needle_span.column_start as usize);
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
 		if start <= needle_start
@@ -80,7 +106,7 @@ fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
 	use syn::visit::visit_item;
 	use proc_macro2::LineColumn;
 	struct Visitor<'a> {
-		macro_spans :&'a mut MacroSpans,
+		macro_spans :&'a mut Vec<MacroSpan>,
 	}
 	impl<'ast, 'a> syn::visit::Visit<'ast> for Visitor<'a> {
 		fn visit_macro(&mut self, m :&'ast Macro) {
@@ -116,14 +142,15 @@ fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
 	}).parse_str(file)?;
 
 
-	let mut res = Vec::new();
+	let mut macro_spans_vec = Vec::new();
 	for item in items.iter() {
 		let mut visitor = Visitor {
-			macro_spans : &mut res,
+			macro_spans : &mut macro_spans_vec,
 		};
 		visit_item(&mut visitor, &item);
 	}
-	return Ok(res);
+	let macro_spans = MacroSpans::from_iter(macro_spans_vec);
+	return Ok(macro_spans);
 }
 
 impl<T> Def<T> {
