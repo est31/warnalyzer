@@ -33,6 +33,7 @@ These are the false positives known to me:
 ### Other bugs
 
 * Enum variants are not recognized (worked around in the code but [it would be cool to have the rustc bug fixed](https://github.com/rust-lang/rust/issues/61302))
+* Uses in enum struct variants are not recognized as such
 * No recursion like the `dead_code` lint of rustc, so if something only gets used by unused code, it doesn't get reported while it should.
 
 ### License
