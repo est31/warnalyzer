@@ -36,20 +36,20 @@ impl<T> ItemId<T> {
 // that size. Tbh at these ranges it might be more efficient
 // to forego building the interval tree. It might also help
 // with code complexity.
-struct MacroSpans {
+struct MuteSpans {
 	inner :IntervalTree<(usize, usize), MacroSpan>,
 }
 
 type MacroSpan = ((usize, usize), (usize, usize));
 
-impl MacroSpans {
+impl MuteSpans {
 	fn search(&self, needle :&crate::defs::Span) -> impl Iterator<Item=MacroSpan> + '_ {
 		let needle_start = (needle.line_start as usize, needle.column_start as usize);
 		let needle_end = (needle.line_end as usize, needle.column_end as usize);
 		self.inner.query(needle_start..needle_end).map(|el|el.value)
 	}
 }
-impl FromIterator<MacroSpan> for MacroSpans {
+impl FromIterator<MacroSpan> for MuteSpans {
 	fn from_iter<T: IntoIterator<Item = MacroSpan>>(iter :T) -> Self {
 		Self {
 			inner : <IntervalTree<_,_> as FromIterator<_>>::from_iter(iter.into_iter().map(|v| {
@@ -62,7 +62,7 @@ impl FromIterator<MacroSpan> for MacroSpans {
 	}
 }
 
-fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> bool {
+fn in_mute_spans(macro_spans :&MuteSpans, needle_span :&crate::defs::Span) -> bool {
 	for (start, end) in macro_spans.search(needle_span) {
 		let needle_start = (needle_span.line_start as usize, needle_span.column_start as usize);
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
@@ -78,12 +78,12 @@ fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> 
 	false
 }
 
-struct MacroSpansCache {
+struct MuteSpansCache {
 	prefix :PathBuf,
-	cache :CHashMap<(CrateDisambiguator, String), MacroSpans>,
+	cache :CHashMap<(CrateDisambiguator, String), MuteSpans>,
 }
 
-impl MacroSpansCache {
+impl MuteSpansCache {
 	fn new<'a>(prefix :impl Into<&'a Path>) -> Self {
 		Self {
 			prefix : prefix.into().to_owned(),
@@ -92,20 +92,20 @@ impl MacroSpansCache {
 	}
 	fn is_in_macro(&self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
 		if let Some(macro_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
-			return Ok(in_macro_spans(&macro_spans, needle_span));
+			return Ok(in_mute_spans(&macro_spans, needle_span));
 		}
 		let mut path = self.prefix.clone();
 		path.push(&needle_span.file_name);
 		let file = std::fs::read_to_string(path)?;
-		let macro_spans = macro_spans_for_file(&file)?;
+		let macro_spans = mute_spans_for_file(&file)?;
 
-		let ret = in_macro_spans(&macro_spans, needle_span);
+		let ret = in_mute_spans(&macro_spans, needle_span);
 		self.cache.insert((crate_id, needle_span.file_name.clone()), macro_spans);
 		Ok(ret)
 	}
 }
 
-fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
+fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 	use syn::parse::Parser;
 	use syn::parse::ParseStream;
 	use syn::{Attribute, Item, Macro};
@@ -171,7 +171,7 @@ fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
 		};
 		visit_item(&mut visitor, &item);
 	}
-	let macro_spans = MacroSpans::from_iter(macro_spans_vec);
+	let macro_spans = MuteSpans::from_iter(macro_spans_vec);
 	return Ok(macro_spans);
 }
 
@@ -300,7 +300,7 @@ impl AnalysisDb {
 			used_defs.insert(r.ref_id);
 		}
 		let root = self.root.clone().unwrap_or_else(PathBuf::new);
-		let macro_spans_cache = MacroSpansCache::new(root.as_path());
+		let macro_spans_cache = MuteSpansCache::new(root.as_path());
 		let mut unused_defs = self.defs.par_iter().filter_map(|(did, d)| {
 			if used_defs.contains(&did) {
 				return None;
