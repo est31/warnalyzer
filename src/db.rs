@@ -29,6 +29,49 @@ impl<T> ItemId<T> {
 
 type MacroSpans = Vec<((usize, usize), (usize, usize))>;
 
+fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> bool {
+	for &(start, end) in macro_spans.iter() {
+		let needle_start = (needle_span.line_start as usize, needle_span.column_start as usize);
+		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
+		if start <= needle_start
+				&& end >= needle_end {
+			println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
+				needle_span.file_name,
+				needle_span.line_start, needle_span.column_start,
+				start, end);
+			return true;
+		}
+	}
+	false
+}
+
+struct MacroSpansCache {
+	prefix :PathBuf,
+	cache :HashMap<(CrateDisambiguator, String), MacroSpans>,
+}
+
+impl MacroSpansCache {
+	fn new<'a>(prefix :impl Into<&'a Path>) -> Self {
+		Self {
+			prefix : prefix.into().to_owned(),
+			cache : HashMap::new(),
+		}
+	}
+	fn is_in_macro(&mut self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
+		if let Some(macro_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
+			return Ok(in_macro_spans(macro_spans, needle_span));
+		}
+		let mut path = self.prefix.clone();
+		path.push(&needle_span.file_name);
+		let file = std::fs::read_to_string(path)?;
+		let macro_spans = macro_spans_for_file(&file)?;
+
+		let ret = in_macro_spans(&macro_spans, needle_span);
+		self.cache.insert((crate_id, needle_span.file_name.clone()), macro_spans);
+		Ok(ret)
+	}
+}
+
 fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
 	use syn::parse::Parser;
 	use syn::parse::ParseStream;
@@ -93,25 +136,6 @@ impl<T> Def<T> {
 			parent : self.parent.as_ref().map(|v| v.clone_map(&f)),
 			decl_id : self.decl_id.as_ref().map(|v| v.clone_map(&f)),
 		}
-	}
-
-	fn is_in_macro<'a>(&self, prefix :impl Into<&'a Path>) -> Result<bool, StrErr> {
-		let mut path = prefix.into().to_owned();
-		path.push(&self.span.file_name);
-		let file = std::fs::read_to_string(path)?;
-		for &(start, end) in macro_spans_for_file(&file)?.iter() {
-			let needle_start = (self.span.line_start as usize, self.span.column_start as usize);
-			let needle_end = (self.span.line_end as usize, self.span.column_end as usize);
-			if start <= needle_start
-					&& end >= needle_end {
-				println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
-					self.span.file_name,
-					self.span.line_start, self.span.column_start,
-					start, end);
-				return Ok(true);
-			}
-		}
-		Ok(false)
 	}
 }
 
@@ -218,6 +242,8 @@ impl AnalysisDb {
 		for (_rid, r) in self.refs.iter() {
 			used_defs.insert(r.ref_id);
 		}
+		let root = self.root.clone().unwrap_or_else(PathBuf::new);
+		let mut macro_spans_cache = MacroSpansCache::new(root.as_path());
 		let mut unused_defs = Vec::new();
 		for (did, d) in self.defs.iter() {
 			if used_defs.contains(&did) {
@@ -257,11 +283,9 @@ impl AnalysisDb {
 			// Macros have poor save-analysis support atm:
 			// https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487
 			// Most importantly, their spans are not emitted.
-			let root = self.root.clone().unwrap_or_else(PathBuf::new);
-			if d.is_in_macro(root.as_path()).unwrap_or(false) {
+			if macro_spans_cache.is_in_macro(d.id.krate, &d.span).unwrap_or(false) {
 				continue;
 			}
-			//std::fs::read_to_string d.span.file_name
 			unused_defs.push(d);
 		}
 		unused_defs.sort();
