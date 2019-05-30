@@ -29,6 +29,11 @@ impl<T> ItemId<T> {
 	}
 }
 
+// TODO the number of all macro spans that were ever handled
+// in servo is about 19k. This means our list is bounded by
+// that size. Tbh at these ranges it might be more efficient
+// to forego building the interval tree. It might also help
+// with code complexity.
 struct MacroSpans {
 	inner :IntervalTree<(usize, usize), MacroSpan>,
 }
