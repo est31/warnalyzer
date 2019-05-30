@@ -109,29 +109,44 @@ fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
 	use syn::{Attribute, Item, Macro};
 	use syn::spanned::Spanned;
 	use syn::visit::visit_item;
-	use proc_macro2::LineColumn;
+	use proc_macro2::{LineColumn, TokenTree};
 	struct Visitor<'a> {
 		macro_spans :&'a mut Vec<MacroSpan>,
+	}
+	fn lc(v :LineColumn) -> (usize, usize) {
+		// Columns are 0-based for some reason...
+		// https://github.com/rust-lang/rust/issues/54725
+		(v.line, v.column + 1)
+	};
+	fn span_min_max(first :MacroSpan,
+			it :impl Iterator<Item=TokenTree>) -> MacroSpan {
+		it.fold(first, |(m_start, m_end), ntt| {
+				let sp = ntt.span();
+				(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
+			})
 	}
 	impl<'ast, 'a> syn::visit::Visit<'ast> for Visitor<'a> {
 		fn visit_macro(&mut self, m :&'ast Macro) {
 			let sp = m.span();
-			fn lc(v :LineColumn) -> (usize, usize) {
-				// Columns are 0-based for some reason...
-				// https://github.com/rust-lang/rust/issues/54725
-				(v.line, v.column + 1)
-			};
 
 			// We need to find the maximum span encompassing the entire
 			// macro. m.span() only points to the macro's name.
 			// Thus, iterate over the entire macro's invocation.
 			let start = lc(sp.start());
 			let end = lc(sp.end());
-			let (start, end) = m.tts.clone().into_iter()
-				.fold((start, end), |(m_start, m_end), ntt| {
-					let sp = ntt.span();
-					(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
-				});
+			let (start, end) = span_min_max((start, end), m.tts.clone().into_iter());
+
+			self.macro_spans.push((start, end));
+		}
+		fn visit_attribute(&mut self, a :&'ast Attribute) {
+			let sp = a.span();
+
+			// We need to find the maximum span encompassing the entire
+			// macro. m.span() only points to the macro's name.
+			// Thus, iterate over the entire macro's invocation.
+			let start = lc(sp.start());
+			let end = lc(sp.end());
+			let (start, end) = span_min_max((start, end), a.tts.clone().into_iter());
 
 			self.macro_spans.push((start, end));
 		}
