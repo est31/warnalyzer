@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::iter::FromIterator;
 use std::collections::{HashSet, HashMap};
 use intervaltree::IntervalTree;
+use rayon::prelude::*;
 
 use defs::{Def, Ref, ItemId, Prelude};
 
@@ -232,27 +233,35 @@ impl AnalysisDb {
 		let dir_path = path.parent().unwrap();
 		let mut crates = HashMap::new();
 		let mut covered_crates = HashSet::new();
-		for entry in std::fs::read_dir(dir_path)? {
-			let entry = entry?;
-			let path = entry.path();
-			let metadata = parse_analysis_metadata(&path)?;
-			let disambiguator = metadata.prelude.crate_id.disambiguator;
-			// Ignore results from other compile runs
-			if !disambiguators.contains(&disambiguator) {
-				continue;
-			}
+		let v :Vec<_> = std::fs::read_dir(dir_path)?
+			.collect::<Vec<_>>()
+			.into_par_iter().map(|entry| -> Result<_, StrErr> {
+				let entry = entry?;
+				let path = entry.path();
+				let metadata = parse_analysis_metadata(&path)?;
+				let disambiguator = metadata.prelude.crate_id.disambiguator;
+				// Ignore results from other compile runs
+				if !disambiguators.contains(&disambiguator) {
+					return Ok(None);
+				}
 
-			// Ignore stuff from crates.io or git deps.
-			// Just focus on path deps for now.
-			if metadata.compilation.directory.contains(".cargo/registry/src/github.com") ||
-					metadata.compilation.directory.contains(".cargo/git/") {
-				info!("i> {}", path.to_str().unwrap());
-				continue;
+				// Ignore stuff from crates.io or git deps.
+				// Just focus on path deps for now.
+				if metadata.compilation.directory.contains(".cargo/registry/src/github.com") ||
+						metadata.compilation.directory.contains(".cargo/git/") {
+					info!("i> {}", path.to_str().unwrap());
+					return Ok(None);
+				}
+				info!("p> {}", path.to_str().unwrap());
+				let file_parsed = parse_save_analysis(&path)?;
+				Ok(Some((disambiguator, file_parsed)))
+		}).collect();
+		for v in v.into_iter() {
+			let v = v?;
+			if let Some((disambiguator, file_parsed)) = v {
+				covered_crates.insert(disambiguator);
+				crates.insert(disambiguator, file_parsed);
 			}
-			info!("p> {}", path.to_str().unwrap());
-			let file_parsed = parse_save_analysis(&path)?;
-			crates.insert(disambiguator, file_parsed);
-			covered_crates.insert(disambiguator);
 		}
 		let mut defs = HashMap::new();
 		for (_dis, c) in crates.iter() {

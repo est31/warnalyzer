@@ -6,6 +6,7 @@ extern crate intervaltree;
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
+extern crate rayon;
 
 mod defs;
 mod db;
