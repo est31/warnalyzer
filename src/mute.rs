@@ -85,8 +85,7 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 	use syn::parse::ParseStream;
 	use syn::{Attribute, Item, Macro};
 	use syn::spanned::Spanned;
-	use syn::visit::visit_item;
-	use proc_macro2::{LineColumn, TokenTree};
+	use proc_macro2::LineColumn;
 	struct Visitor<'a> {
 		mute_spans :&'a mut Vec<MuteSpan>,
 	}
@@ -95,8 +94,8 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 		// https://github.com/rust-lang/rust/issues/54725
 		(v.line, v.column + 1)
 	};
-	fn span_min_max(first :MuteSpan,
-			it :impl Iterator<Item=TokenTree>) -> MuteSpan {
+	fn span_min_max<Sp :Spanned>(first :MuteSpan,
+			it :impl Iterator<Item=Sp>) -> MuteSpan {
 		it.fold(first, |(m_start, m_end), ntt| {
 				let sp = ntt.span();
 				(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
