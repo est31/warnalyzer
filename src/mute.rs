@@ -12,20 +12,20 @@ use chashmap::CHashMap;
 // to forego building the interval tree. It might also help
 // with code complexity.
 struct MuteSpans {
-	inner :IntervalTree<(usize, usize), MacroSpan>,
+	inner :IntervalTree<(usize, usize), MuteSpan>,
 }
 
-type MacroSpan = ((usize, usize), (usize, usize));
+type MuteSpan = ((usize, usize), (usize, usize));
 
 impl MuteSpans {
-	fn search(&self, needle :&crate::defs::Span) -> impl Iterator<Item=MacroSpan> + '_ {
+	fn search(&self, needle :&crate::defs::Span) -> impl Iterator<Item=MuteSpan> + '_ {
 		let needle_start = (needle.line_start as usize, needle.column_start as usize);
 		let needle_end = (needle.line_end as usize, needle.column_end as usize);
 		self.inner.query(needle_start..needle_end).map(|el|el.value)
 	}
 }
-impl FromIterator<MacroSpan> for MuteSpans {
-	fn from_iter<T: IntoIterator<Item = MacroSpan>>(iter :T) -> Self {
+impl FromIterator<MuteSpan> for MuteSpans {
+	fn from_iter<T: IntoIterator<Item = MuteSpan>>(iter :T) -> Self {
 		Self {
 			inner : <IntervalTree<_,_> as FromIterator<_>>::from_iter(iter.into_iter().map(|v| {
 				intervaltree::Element {
@@ -37,8 +37,8 @@ impl FromIterator<MacroSpan> for MuteSpans {
 	}
 }
 
-fn in_mute_spans(macro_spans :&MuteSpans, needle_span :&crate::defs::Span) -> bool {
-	for (start, end) in macro_spans.search(needle_span) {
+fn in_mute_spans(mute_spans :&MuteSpans, needle_span :&crate::defs::Span) -> bool {
+	for (start, end) in mute_spans.search(needle_span) {
 		let needle_start = (needle_span.line_start as usize, needle_span.column_start as usize);
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
 		if start <= needle_start
@@ -66,16 +66,16 @@ impl MuteSpansCache {
 		}
 	}
 	pub fn is_in_macro(&self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
-		if let Some(macro_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
-			return Ok(in_mute_spans(&macro_spans, needle_span));
+		if let Some(mute_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
+			return Ok(in_mute_spans(&mute_spans, needle_span));
 		}
 		let mut path = self.prefix.clone();
 		path.push(&needle_span.file_name);
 		let file = std::fs::read_to_string(path)?;
-		let macro_spans = mute_spans_for_file(&file)?;
+		let mute_spans = mute_spans_for_file(&file)?;
 
-		let ret = in_mute_spans(&macro_spans, needle_span);
-		self.cache.insert((crate_id, needle_span.file_name.clone()), macro_spans);
+		let ret = in_mute_spans(&mute_spans, needle_span);
+		self.cache.insert((crate_id, needle_span.file_name.clone()), mute_spans);
 		Ok(ret)
 	}
 }
@@ -88,15 +88,15 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 	use syn::visit::visit_item;
 	use proc_macro2::{LineColumn, TokenTree};
 	struct Visitor<'a> {
-		macro_spans :&'a mut Vec<MacroSpan>,
+		mute_spans :&'a mut Vec<MuteSpan>,
 	}
 	fn lc(v :LineColumn) -> (usize, usize) {
 		// Columns are 0-based for some reason...
 		// https://github.com/rust-lang/rust/issues/54725
 		(v.line, v.column + 1)
 	};
-	fn span_min_max(first :MacroSpan,
-			it :impl Iterator<Item=TokenTree>) -> MacroSpan {
+	fn span_min_max(first :MuteSpan,
+			it :impl Iterator<Item=TokenTree>) -> MuteSpan {
 		it.fold(first, |(m_start, m_end), ntt| {
 				let sp = ntt.span();
 				(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
@@ -113,7 +113,7 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 			let end = lc(sp.end());
 			let (start, end) = span_min_max((start, end), m.tts.clone().into_iter());
 
-			self.macro_spans.push((start, end));
+			self.mute_spans.push((start, end));
 		}
 		fn visit_attribute(&mut self, a :&'ast Attribute) {
 			let sp = a.span();
@@ -125,7 +125,7 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 			let end = lc(sp.end());
 			let (start, end) = span_min_max((start, end), a.tts.clone().into_iter());
 
-			self.macro_spans.push((start, end));
+			self.mute_spans.push((start, end));
 		}
 	}
 	let (_attrs, items) = (|stream :ParseStream| {
@@ -139,13 +139,13 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 	}).parse_str(file)?;
 
 
-	let mut macro_spans_vec = Vec::new();
+	let mut mute_spans_vec = Vec::new();
 	for item in items.iter() {
 		let mut visitor = Visitor {
-			macro_spans : &mut macro_spans_vec,
+			mute_spans : &mut mute_spans_vec,
 		};
 		visit_item(&mut visitor, &item);
 	}
-	let macro_spans = MuteSpans::from_iter(macro_spans_vec);
-	return Ok(macro_spans);
+	let mute_spans = MuteSpans::from_iter(mute_spans_vec);
+	return Ok(mute_spans);
 }
