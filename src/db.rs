@@ -45,6 +45,7 @@ impl<T> Def<T> {
 		use syn::{Attribute, Item, Macro};
 		use syn::spanned::Spanned;
 		use syn::visit::visit_item;
+		use proc_macro2::LineColumn;
 		let mut path = prefix.into().to_owned();
 		path.push(&self.span.file_name);
 		let file = std::fs::read_to_string(path)?;
@@ -55,10 +56,31 @@ impl<T> Def<T> {
 		impl<'ast> syn::visit::Visit<'ast> for Visitor {
 			fn visit_macro(&mut self, m :&'ast Macro) {
 				let sp = m.span();
-				// TODO this code is broken atm as the span is only
-				// the span of the macro name.
-				if (sp.start().line, sp.start().column) <= (self.needle_span.line_start as usize, self.needle_span.column_start as usize)
-						&& (sp.end().line, sp.end().column) >= (self.needle_span.line_end as usize, self.needle_span.column_end as usize) {
+				fn lc(v :LineColumn) -> (usize, usize) {
+					// Columns are 0-based for some reason...
+					// https://github.com/rust-lang/rust/issues/54725
+					(v.line, v.column + 1)
+				};
+
+				// We need to find the maximum span encompassing the entire
+				// macro. m.span() only points to the macro's name.
+				// Thus, iterate over the entire macro's invocation.
+				let start = lc(sp.start());
+				let end = lc(sp.end());
+				let (start, end) = m.tts.clone().into_iter()
+					.fold((start, end), |(m_start, m_end), ntt| {
+						let sp = ntt.span();
+						(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
+					});
+
+				let needle_start = (self.needle_span.line_start as usize, self.needle_span.column_start as usize);
+				let needle_end = (self.needle_span.line_end as usize, self.needle_span.column_end as usize);
+				if start <= needle_start
+						&& end >= needle_end {
+					println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
+						self.needle_span.file_name,
+						self.needle_span.line_start, self.needle_span.column_start,
+						start, end);
 					self.found = true;
 				}
 			}
