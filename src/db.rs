@@ -66,10 +66,10 @@ fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> 
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
 		if start <= needle_start
 				&& end >= needle_end {
-			println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
+			/*println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
 				needle_span.file_name,
 				needle_span.line_start, needle_span.column_start,
-				start, end);
+				start, end);*/
 			return true;
 		}
 	}
