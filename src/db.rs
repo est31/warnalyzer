@@ -6,6 +6,7 @@ use std::iter::FromIterator;
 use std::collections::{HashSet, HashMap};
 use intervaltree::IntervalTree;
 use rayon::prelude::*;
+use chashmap::CHashMap;
 
 use defs::{Def, Ref, ItemId, Prelude};
 
@@ -79,19 +80,19 @@ fn in_macro_spans(macro_spans :&MacroSpans, needle_span :&crate::defs::Span) -> 
 
 struct MacroSpansCache {
 	prefix :PathBuf,
-	cache :HashMap<(CrateDisambiguator, String), MacroSpans>,
+	cache :CHashMap<(CrateDisambiguator, String), MacroSpans>,
 }
 
 impl MacroSpansCache {
 	fn new<'a>(prefix :impl Into<&'a Path>) -> Self {
 		Self {
 			prefix : prefix.into().to_owned(),
-			cache : HashMap::new(),
+			cache : CHashMap::new(),
 		}
 	}
-	fn is_in_macro(&mut self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
+	fn is_in_macro(&self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
 		if let Some(macro_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
-			return Ok(in_macro_spans(macro_spans, needle_span));
+			return Ok(in_macro_spans(&macro_spans, needle_span));
 		}
 		let mut path = self.prefix.clone();
 		path.push(&needle_span.file_name);
@@ -299,25 +300,24 @@ impl AnalysisDb {
 			used_defs.insert(r.ref_id);
 		}
 		let root = self.root.clone().unwrap_or_else(PathBuf::new);
-		let mut macro_spans_cache = MacroSpansCache::new(root.as_path());
-		let mut unused_defs = Vec::new();
-		for (did, d) in self.defs.iter() {
+		let macro_spans_cache = MacroSpansCache::new(root.as_path());
+		let mut unused_defs = self.defs.par_iter().filter_map(|(did, d)| {
 			if used_defs.contains(&did) {
-				continue;
+				return None;
 			}
 			// Anything starting with _ can be unused without warning.
 			if d.name.starts_with("_") {
-				continue;
+				return None;
 			}
 			// Self may be unused without warning.
 			if d.kind == "Local" && d.name == "self" {
-				continue;
+				return None;
 			}
 			// There is an id mismatch bug in rustc's save-analysis
 			// output.
 			// https://github.com/rust-lang/rust/issues/61302
 			if d.kind == "TupleVariant" {
-				continue;
+				return None;
 			}
 			// Record implementations of traits etc as used if the trait's
 			// function is used
@@ -327,23 +327,23 @@ impl AnalysisDb {
 				// Whether the trait is from another crate
 				let fn_in_trait_foreign = !self.covered_crates.contains(&decl_id.krate);
 				if fn_in_trait_used || fn_in_trait_foreign {
-					continue;
+					return None;
 				}
 			}
 			if let Some(parent) = d.parent.as_ref().and_then(|p| self.defs.get(p)) {
 				// It seems that rustc doesn't emit any refs for assoc. types
 				if parent.kind == "Trait" && d.kind == "Type" {
-					continue;
+					return None;
 				}
 			}
 			// Macros have poor save-analysis support atm:
 			// https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487
 			// Most importantly, their spans are not emitted.
 			if macro_spans_cache.is_in_macro(d.id.krate, &d.span).unwrap_or(false) {
-				continue;
+				return None;
 			}
-			unused_defs.push(d);
-		}
+			Some(d)
+		}).collect::<Vec<_>>();
 		unused_defs.sort();
 		unused_defs.into_iter()
 	}

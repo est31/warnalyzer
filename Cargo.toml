@@ -12,3 +12,5 @@ proc-macro2 = { version = "0.4", features = ["span-locations"] }
 intervaltree = "0.2"
 log = "0.4"
 pretty_env_logger = "0.3"
+rayon = "1.0"
+chashmap = "2.2"

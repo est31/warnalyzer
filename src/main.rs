@@ -7,6 +7,7 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 extern crate rayon;
+extern crate chashmap;
 
 mod defs;
 mod db;
