@@ -1,7 +1,7 @@
 use defs::{CrateSaveAnalysis, CrateDisambiguator,
 	CrateSaveAnalysisMetadata};
 use StrErr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::collections::{HashSet, HashMap};
 
 use defs::{Def, Ref, ItemId, Prelude};
@@ -12,6 +12,7 @@ pub type AbsDef = Def<CrateDisambiguator>;
 pub type AbsRef = Ref<CrateDisambiguator>;
 
 pub struct AnalysisDb {
+	root :Option<PathBuf>,
 	covered_crates :HashSet<CrateDisambiguator>,
 	defs :HashMap<AbsItemId, AbsDef>,
 	refs :HashMap<AbsItemId, AbsRef>,
@@ -36,6 +37,54 @@ impl<T> Def<T> {
 			parent : self.parent.as_ref().map(|v| v.clone_map(&f)),
 			decl_id : self.decl_id.as_ref().map(|v| v.clone_map(&f)),
 		}
+	}
+
+	fn is_in_macro<'a>(&self, prefix :impl Into<&'a Path>) -> Result<bool, StrErr> {
+		use syn::parse::Parser;
+		use syn::parse::ParseStream;
+		use syn::{Attribute, Item, Macro};
+		use syn::spanned::Spanned;
+		use syn::visit::visit_item;
+		let mut path = prefix.into().to_owned();
+		path.push(&self.span.file_name);
+		let file = std::fs::read_to_string(path)?;
+		struct Visitor {
+			found :bool,
+			needle_span :crate::defs::Span,
+		}
+		impl<'ast> syn::visit::Visit<'ast> for Visitor {
+			fn visit_macro(&mut self, m :&'ast Macro) {
+				let sp = m.span();
+				// TODO this code is broken atm as the span is only
+				// the span of the macro name.
+				if (sp.start().line, sp.start().column) <= (self.needle_span.line_start as usize, self.needle_span.column_start as usize)
+						&& (sp.end().line, sp.end().column) >= (self.needle_span.line_end as usize, self.needle_span.column_end as usize) {
+					self.found = true;
+				}
+			}
+		}
+		let (_attrs, items) = (|stream :ParseStream| {
+			let attrs = stream.call(Attribute::parse_inner)?;
+			let mut items = Vec::new();
+			while !stream.is_empty() {
+				let item :Item = stream.parse()?;
+				items.push(item);
+			}
+			Ok((attrs, items))
+		}).parse_str(&file)?;
+
+
+		for item in items.iter() {
+			let mut visitor = Visitor {
+				found : false,
+				needle_span : self.span.clone(),
+			};
+			visit_item(&mut visitor, &item);
+			if visitor.found {
+				return Ok(true)
+			}
+		}
+		Ok(false)
 	}
 }
 
@@ -124,7 +173,14 @@ impl AnalysisDb {
 		//println!("{:#?}", defs);
 		//println!("{:#?}", refs);
 
+		let root = path.parent()
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.map(|p| p.to_owned());
 		Ok(AnalysisDb {
+			root,
 			covered_crates,
 			defs,
 			refs,
@@ -171,6 +227,14 @@ impl AnalysisDb {
 					continue;
 				}
 			}
+			// Macros have poor save-analysis support atm:
+			// https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487
+			// Most importantly, their spans are not emitted.
+			let root = self.root.clone().unwrap_or_else(PathBuf::new);
+			if d.is_in_macro(root.as_path()).unwrap_or(false) {
+				continue;
+			}
+			//std::fs::read_to_string d.span.file_name
 			unused_defs.push(d);
 		}
 		unused_defs.sort();
