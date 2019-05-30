@@ -27,6 +27,62 @@ impl<T> ItemId<T> {
 	}
 }
 
+type MacroSpans = Vec<((usize, usize), (usize, usize))>;
+
+fn macro_spans_for_file<'a>(file :&str) -> Result<MacroSpans, StrErr> {
+	use syn::parse::Parser;
+	use syn::parse::ParseStream;
+	use syn::{Attribute, Item, Macro};
+	use syn::spanned::Spanned;
+	use syn::visit::visit_item;
+	use proc_macro2::LineColumn;
+	struct Visitor<'a> {
+		macro_spans :&'a mut MacroSpans,
+	}
+	impl<'ast, 'a> syn::visit::Visit<'ast> for Visitor<'a> {
+		fn visit_macro(&mut self, m :&'ast Macro) {
+			let sp = m.span();
+			fn lc(v :LineColumn) -> (usize, usize) {
+				// Columns are 0-based for some reason...
+				// https://github.com/rust-lang/rust/issues/54725
+				(v.line, v.column + 1)
+			};
+
+			// We need to find the maximum span encompassing the entire
+			// macro. m.span() only points to the macro's name.
+			// Thus, iterate over the entire macro's invocation.
+			let start = lc(sp.start());
+			let end = lc(sp.end());
+			let (start, end) = m.tts.clone().into_iter()
+				.fold((start, end), |(m_start, m_end), ntt| {
+					let sp = ntt.span();
+					(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
+				});
+
+			self.macro_spans.push((start, end));
+		}
+	}
+	let (_attrs, items) = (|stream :ParseStream| {
+		let attrs = stream.call(Attribute::parse_inner)?;
+		let mut items = Vec::new();
+		while !stream.is_empty() {
+			let item :Item = stream.parse()?;
+			items.push(item);
+		}
+		Ok((attrs, items))
+	}).parse_str(file)?;
+
+
+	let mut res = Vec::new();
+	for item in items.iter() {
+		let mut visitor = Visitor {
+			macro_spans : &mut res,
+		};
+		visit_item(&mut visitor, &item);
+	}
+	return Ok(res);
+}
+
 impl<T> Def<T> {
 	fn clone_map<U>(&self, f :impl Fn(&T) -> U) -> Def<U> {
 		Def {
@@ -40,70 +96,19 @@ impl<T> Def<T> {
 	}
 
 	fn is_in_macro<'a>(&self, prefix :impl Into<&'a Path>) -> Result<bool, StrErr> {
-		use syn::parse::Parser;
-		use syn::parse::ParseStream;
-		use syn::{Attribute, Item, Macro};
-		use syn::spanned::Spanned;
-		use syn::visit::visit_item;
-		use proc_macro2::LineColumn;
 		let mut path = prefix.into().to_owned();
 		path.push(&self.span.file_name);
 		let file = std::fs::read_to_string(path)?;
-		struct Visitor {
-			found :bool,
-			needle_span :crate::defs::Span,
-		}
-		impl<'ast> syn::visit::Visit<'ast> for Visitor {
-			fn visit_macro(&mut self, m :&'ast Macro) {
-				let sp = m.span();
-				fn lc(v :LineColumn) -> (usize, usize) {
-					// Columns are 0-based for some reason...
-					// https://github.com/rust-lang/rust/issues/54725
-					(v.line, v.column + 1)
-				};
-
-				// We need to find the maximum span encompassing the entire
-				// macro. m.span() only points to the macro's name.
-				// Thus, iterate over the entire macro's invocation.
-				let start = lc(sp.start());
-				let end = lc(sp.end());
-				let (start, end) = m.tts.clone().into_iter()
-					.fold((start, end), |(m_start, m_end), ntt| {
-						let sp = ntt.span();
-						(m_start.min(lc(sp.start())), m_end.max(lc(sp.end())))
-					});
-
-				let needle_start = (self.needle_span.line_start as usize, self.needle_span.column_start as usize);
-				let needle_end = (self.needle_span.line_end as usize, self.needle_span.column_end as usize);
-				if start <= needle_start
-						&& end >= needle_end {
-					println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
-						self.needle_span.file_name,
-						self.needle_span.line_start, self.needle_span.column_start,
-						start, end);
-					self.found = true;
-				}
-			}
-		}
-		let (_attrs, items) = (|stream :ParseStream| {
-			let attrs = stream.call(Attribute::parse_inner)?;
-			let mut items = Vec::new();
-			while !stream.is_empty() {
-				let item :Item = stream.parse()?;
-				items.push(item);
-			}
-			Ok((attrs, items))
-		}).parse_str(&file)?;
-
-
-		for item in items.iter() {
-			let mut visitor = Visitor {
-				found : false,
-				needle_span : self.span.clone(),
-			};
-			visit_item(&mut visitor, &item);
-			if visitor.found {
-				return Ok(true)
+		for &(start, end) in macro_spans_for_file(&file)?.iter() {
+			let needle_start = (self.span.line_start as usize, self.span.column_start as usize);
+			let needle_end = (self.span.line_end as usize, self.span.column_end as usize);
+			if start <= needle_start
+					&& end >= needle_end {
+				println!("{}:{}:{}: unused ignored because of macro: {:?} till {:?}",
+					self.span.file_name,
+					self.span.line_start, self.span.column_start,
+					start, end);
+				return Ok(true);
 			}
 		}
 		Ok(false)
