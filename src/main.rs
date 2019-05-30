@@ -11,6 +11,7 @@ extern crate chashmap;
 
 mod defs;
 mod db;
+mod mute;
 
 use std::fmt::Display;
 
