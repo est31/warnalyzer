@@ -17,6 +17,7 @@ This tool, warnalyzer, provides unused code detection functionality for such mul
 ### Requirements
 
 Nightly rust is required, as [save-analysis is unstable](https://github.com/rust-lang/rust/issues/43606).
+Despite the name, warnalyzer [does not use rust-analyzer](https://github.com/rust-analyzer/rust-analyzer) (yet).
 
 ### Known bugs
 
