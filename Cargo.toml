@@ -2,6 +2,10 @@
 name = "warnalyzer"
 version = "0.1.0"
 authors = ["est31 <MTest31@outlook.com>"]
+description = "Show unused code from multi-crate Rust projects"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/est31/warnalyzer"
+readme = "README.md"
 edition = "2015"
 
 [dependencies]
