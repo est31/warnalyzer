@@ -168,6 +168,13 @@ impl AnalysisDb {
 			if d.kind == "Local" && d.name == "self" {
 				return None;
 			}
+			// Forbid locals for now as
+			// a) the rustc lints should already catch them and
+			// b) there is a false positive bug that affects them:
+			// https://github.com/rust-lang/rust/issues/61385
+			if d.kind == "Local" {
+				return None;
+			}
 			// There is an id mismatch bug in rustc's save-analysis
 			// output.
 			// https://github.com/rust-lang/rust/issues/61302
