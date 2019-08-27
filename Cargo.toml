@@ -11,7 +11,7 @@ edition = "2015"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-syn = { version = "0.15", features = ["full", "extra-traits"] }
+syn = { version = "0.15", features = ["full", "extra-traits", "visit"] }
 proc-macro2 = { version = "0.4", features = ["span-locations"] }
 intervaltree = "0.2"
 log = "0.4"
