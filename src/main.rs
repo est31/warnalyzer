@@ -24,11 +24,19 @@ impl<T :Display> From<T> for StrErr {
 	}
 }
 
+#[derive(Clone)]
+struct Options {
+	recurse :bool,
+}
+
 fn main() -> Result<(), StrErr> {
 	pretty_env_logger::init();
 	let path = std::env::args().nth(1).expect("please specify path");
 	info!("{}", path);
-	let db = db::AnalysisDb::from_path(&path)?;
+	let options = Options {
+		recurse : false,
+	}
+	let db = db::AnalysisDb::from_path(&path, options)?;
 	for ud in db.get_unused_defs() {
 		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
 	}

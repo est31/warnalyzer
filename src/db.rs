@@ -1,6 +1,6 @@
 use defs::{CrateSaveAnalysis, CrateDisambiguator,
 	CrateSaveAnalysisMetadata};
-use StrErr;
+use {StrErr, Options};
 use std::path::{Path, PathBuf};
 use std::collections::{HashSet, HashMap};
 use rayon::prelude::*;
@@ -15,6 +15,7 @@ pub type AbsDef = Def<CrateDisambiguator>;
 pub type AbsRef = Ref<CrateDisambiguator>;
 
 pub struct AnalysisDb {
+	options :Options,
 	root :Option<PathBuf>,
 	covered_crates :HashSet<CrateDisambiguator>,
 	defs :HashMap<AbsItemId, AbsDef>,
@@ -79,7 +80,7 @@ impl Prelude {
 }
 
 impl AnalysisDb {
-	pub fn from_path(path :&str) -> Result<Self, StrErr> {
+	pub fn from_path(path :&str, options :Options) -> Result<Self, StrErr> {
 		let path = Path::new(path);
 		let leaf_parsed = parse_analysis_metadata(&path)?;
 		let mut disambiguators = leaf_parsed.prelude.external_crates.iter()
@@ -143,6 +144,7 @@ impl AnalysisDb {
 			.and_then(|p| p.parent())
 			.map(|p| p.to_owned());
 		Ok(AnalysisDb {
+			options,
 			root,
 			covered_crates,
 			defs,
@@ -181,14 +183,20 @@ impl AnalysisDb {
 			if d.kind == "TupleVariant" {
 				return None;
 			}
-			// Record implementations of traits etc as used if the trait's
-			// function is used
 			if let Some(decl_id) = d.decl_id {
-				// Whether the trait's fn is used somewhere
-				let fn_in_trait_used = used_defs.contains(&decl_id);
-				// Whether the trait is from another crate
-				let fn_in_trait_foreign = !self.covered_crates.contains(&decl_id.krate);
-				if fn_in_trait_used || fn_in_trait_foreign {
+				if self.options.recurse {
+					// Record implementations of traits etc as used if the trait's
+					// function is used
+
+					// Whether the trait's fn is used somewhere
+					let fn_in_trait_used = used_defs.contains(&decl_id);
+					// Whether the trait is from another crate
+					let fn_in_trait_foreign = !self.covered_crates.contains(&decl_id.krate);
+					if fn_in_trait_used || fn_in_trait_foreign {
+						return None;
+					}
+				} else {
+					// Don't do any recursion
 					return None;
 				}
 			}
