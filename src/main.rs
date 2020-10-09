@@ -25,7 +25,7 @@ impl<T :Display> From<T> for StrErr {
 }
 
 #[derive(Clone)]
-struct Options {
+pub struct Options {
 	recurse :bool,
 }
 
@@ -35,7 +35,7 @@ fn main() -> Result<(), StrErr> {
 	info!("{}", path);
 	let options = Options {
 		recurse : false,
-	}
+	};
 	let db = db::AnalysisDb::from_path(&path, options)?;
 	for ud in db.get_unused_defs() {
 		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
