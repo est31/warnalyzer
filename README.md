@@ -37,6 +37,11 @@ These are the false positives known to me:
 * No recursion like the `dead_code` lint of rustc, so if something only gets used by unused code, it doesn't get reported while it should.
 * Multi-leaf crate trees are not supported (yet). Some projects may have multiple binaries they produce. Almost every project has tests. Some functions may only be used by some of those roots.
 
+### Trophy case
+
+* servo: [PR 1](https://github.com/servo/servo/pull/23477), [PR 2](https://github.com/servo/servo/pull/23498), [PR 3](https://github.com/servo/servo/pull/23499), [PR 4](https://github.com/servo/servo/pull/23532)
+* [rustc](https://github.com/rust-lang/rust/pull/77739)
+
 ### License
 [license]: #license
 
