@@ -42,7 +42,7 @@ These are the false positives known to me:
 ### Trophy case
 
 * servo: [PR 1](https://github.com/servo/servo/pull/23477), [PR 2](https://github.com/servo/servo/pull/23498), [PR 3](https://github.com/servo/servo/pull/23499), [PR 4](https://github.com/servo/servo/pull/23532)
-* [rustc](https://github.com/rust-lang/rust/pull/77739)
+* rustc: [PR 1](https://github.com/rust-lang/rust/pull/77739), [PR 2](https://github.com/rust-lang/rust/pull/83185)
 
 ### License
 [license]: #license
