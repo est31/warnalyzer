@@ -29,6 +29,7 @@ These are the false positives known to me:
 
 * Any usage by macros is not seen by the tool (save-analysis [has bad macro support](https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487))
 * `#[allow(dead_code)]` has no effect
+* Entry points (main function, etc) [are detected as unused](https://github.com/est31/warnalyzer/issues/6)
 
 ### Other bugs
 
