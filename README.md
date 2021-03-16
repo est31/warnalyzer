@@ -34,6 +34,7 @@ These are the false positives known to me:
 
 * Enum variants are not recognized (worked around in the code but [it would be cool to have the rustc bug fixed](https://github.com/rust-lang/rust/issues/61302))
 * Uses in enum struct variants are not recognized as such ([upstream bug](https://github.com/rust-lang/rust/issues/61385))
+* For loops: The `expr` part of `for pat in expr {}` is not seen as "use" of whatever the expression contains.
 * No recursion like the `dead_code` lint of rustc, so if something only gets used by unused code, it doesn't get reported while it should.
 * Multi-leaf crate trees are not supported (yet). Some projects may have multiple binaries they produce. Almost every project has tests. Some functions may only be used by some of those roots.
 
