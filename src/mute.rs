@@ -94,7 +94,7 @@ fn mute_spans_for_file<'a>(file :&str) -> Result<MuteSpans, StrErr> {
 		// Columns are 0-based for some reason...
 		// https://github.com/rust-lang/rust/issues/54725
 		(v.line, v.column + 1)
-	};
+	}
 	fn span_min_max<Sp :Spanned>(first :MuteSpan,
 			it :impl Iterator<Item=Sp>) -> MuteSpan {
 		it.fold(first, |(m_start, m_end), ntt| {
