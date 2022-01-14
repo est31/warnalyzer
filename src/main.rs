@@ -1,13 +1,5 @@
-extern crate serde;
-extern crate serde_json;
-extern crate syn;
-extern crate proc_macro2;
-extern crate intervaltree;
-extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
-extern crate rayon;
-extern crate chashmap;
 
 mod defs;
 mod db;
