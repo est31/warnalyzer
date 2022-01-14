@@ -1,5 +1,5 @@
-use defs::CrateDisambiguator;
-use StrErr;
+use crate::defs::CrateDisambiguator;
+use crate::StrErr;
 use std::path::{Path, PathBuf};
 use std::iter::FromIterator;
 use intervaltree::IntervalTree;

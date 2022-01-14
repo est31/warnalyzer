@@ -6,7 +6,7 @@ description = "Show unused code from multi-crate Rust projects"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/est31/warnalyzer"
 readme = "README.md"
-edition = "2015"
+edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
