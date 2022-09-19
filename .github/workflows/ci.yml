@@ -32,3 +32,6 @@ jobs:
     - name: Run cargo doc
       run: |
         cargo doc --all --all-features
+    - name: Run run.sh
+      run: |
+        run.sh
