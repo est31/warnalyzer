@@ -33,5 +33,6 @@ jobs:
       run: |
         cargo doc --all --all-features
     - name: Run run.sh
+      if: toolchain == 'nightly'
       run: |
         ./run.sh
