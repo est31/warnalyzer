@@ -1,25 +1,8 @@
 #[macro_use]
 extern crate log;
 
-mod defs;
-mod db;
-mod mute;
-
-use std::fmt::Display;
-
-#[derive(Debug)]
-pub struct StrErr(String);
-
-impl<T :Display> From<T> for StrErr {
-	fn from(v :T) -> Self {
-		StrErr(format!("{}", v))
-	}
-}
-
-#[derive(Clone)]
-pub struct Options {
-	recurse :bool,
-}
+use warnalyzer::db::AnalysisDb;
+use warnalyzer::{Options, StrErr};
 
 fn main() -> Result<(), StrErr> {
 	pretty_env_logger::init();
@@ -28,7 +11,7 @@ fn main() -> Result<(), StrErr> {
 	let options = Options {
 		recurse : false,
 	};
-	let db = db::AnalysisDb::from_path(&path, options)?;
+	let db = AnalysisDb::from_path(&path, options)?;
 	for ud in db.get_unused_defs() {
 		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
 	}
