@@ -1,0 +1,5 @@
+binary-thing/src/main.rs:1:1: unused Mod ''
+binary-thing/src/main.rs:3:4: unused Function 'main'
+library-thing/src/lib.rs:1:1: unused Mod ''
+library-thing/src/lib.rs:4:12: unused Struct 'UnusedStruct'
+library-thing/src/lib.rs:10:8: unused Function 'unused_fn'
