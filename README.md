@@ -1,3 +1,6 @@
+> [!NOTE]
+> Warnalyzer depends on the nightly feature `save-analysis` which was [removed](https://github.com/rust-lang/rust/pull/101841#event-8537301365) in February 2023. In order to use warnalyzer, use a nightly Rust version before February 16, 2023. ([Issue](https://github.com/est31/warnalyzer/issues/9))
+
 ## Warnalyzer
 
 Remove unused code from multi-crate Rust projects.
