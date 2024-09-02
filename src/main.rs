@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use warnalyzer::db::AnalysisDb;
+use warnalyzer::save_analysis::db::AnalysisDb;
 use warnalyzer::{Options, StrErr};
 
 fn main() -> Result<(), StrErr> {

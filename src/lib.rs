@@ -1,9 +1,7 @@
 #[macro_use]
 extern crate log;
 
-mod defs;
-pub mod db;
-mod mute;
+pub mod save_analysis;
 
 use std::fmt::Display;
 

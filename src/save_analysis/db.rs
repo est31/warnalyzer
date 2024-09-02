@@ -1,13 +1,13 @@
-use crate::defs::{CrateSaveAnalysis, CrateDisambiguator,
+use super::defs::{CrateSaveAnalysis, CrateDisambiguator,
 	CrateSaveAnalysisMetadata};
 use crate::{StrErr, Options};
 use std::path::{Path, PathBuf};
 use std::collections::{HashSet, HashMap};
 use rayon::prelude::*;
 
-use crate::mute::MuteSpansCache;
+use super::mute::MuteSpansCache;
 
-use crate::defs::{Def, Ref, ItemId, Prelude};
+use super::defs::{Def, Ref, ItemId, Prelude};
 
 pub type AbsItemId = ItemId<CrateDisambiguator>;
 

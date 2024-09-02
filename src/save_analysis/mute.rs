@@ -1,4 +1,4 @@
-use crate::defs::CrateDisambiguator;
+use super::defs::CrateDisambiguator;
 use crate::StrErr;
 use std::path::{Path, PathBuf};
 use std::iter::FromIterator;
@@ -18,7 +18,7 @@ struct MuteSpans {
 type MuteSpan = ((usize, usize), (usize, usize));
 
 impl MuteSpans {
-	fn search(&self, needle :&crate::defs::Span) -> impl Iterator<Item=MuteSpan> + '_ {
+	fn search(&self, needle :&super::defs::Span) -> impl Iterator<Item=MuteSpan> + '_ {
 		let needle_start = (needle.line_start as usize, needle.column_start as usize);
 		let needle_end = (needle.line_end as usize, needle.column_end as usize);
 		self.inner.query(needle_start..needle_end).map(|el|el.value)
@@ -37,7 +37,7 @@ impl FromIterator<MuteSpan> for MuteSpans {
 	}
 }
 
-fn in_mute_spans(mute_spans :&MuteSpans, needle_span :&crate::defs::Span) -> bool {
+fn in_mute_spans(mute_spans :&MuteSpans, needle_span :&super::defs::Span) -> bool {
 	for (start, end) in mute_spans.search(needle_span) {
 		let needle_start = (needle_span.line_start as usize, needle_span.column_start as usize);
 		let needle_end = (needle_span.line_end as usize, needle_span.column_end as usize);
@@ -65,7 +65,7 @@ impl MuteSpansCache {
 			cache : CHashMap::new(),
 		}
 	}
-	pub fn is_in_macro(&self, crate_id :CrateDisambiguator, needle_span :&crate::defs::Span) -> Result<bool, StrErr> {
+	pub fn is_in_macro(&self, crate_id :CrateDisambiguator, needle_span :&super::defs::Span) -> Result<bool, StrErr> {
 		if let Some(mute_spans) = self.cache.get(&(crate_id, needle_span.file_name.clone())) {
 			return Ok(in_mute_spans(&mute_spans, needle_span));
 		}
