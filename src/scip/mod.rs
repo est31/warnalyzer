@@ -1,5 +1,5 @@
 use protobuf::Message;
-use scip::{symbol::parse_symbol, types::{Index, SymbolRole}};
+use scip::{symbol::parse_symbol, types::{Index, Symbol, SymbolRole}};
 
 use crate::{StrErr, Options};
 use std::{path::{Path, PathBuf}, sync::Arc};
@@ -86,6 +86,15 @@ impl Roles {
 	}
 }
 
+fn shorten_symbol(symbol: &Symbol) -> String {
+	let package_name = &symbol.package.name;
+	let descriptors = symbol.descriptors.iter()
+		.map(|d| format!("{}_{:?}", d.name, d.suffix))
+		.collect::<Vec<_>>();
+	let descriptor_str = descriptors.join(":");
+	format!("{package_name}::{descriptor_str}")
+}
+
 fn dump_index(index: &Index) -> Result<(), StrErr> {
 	println!("index absolute path: {}", index.metadata.project_root);
 	for doc in &index.documents {
@@ -93,10 +102,8 @@ fn dump_index(index: &Index) -> Result<(), StrErr> {
 		println!("path: {}", doc.relative_path);
 		for sym in &doc.symbols {
 			let symbol = parse_symbol(&sym.symbol).unwrap();
-			let symbol_short = symbol.descriptors.iter()
-				.map(|s| s.name.clone())
-				.collect::<String>();
-			println!("  '{}' kind '{:?}' {}", sym.display_name, sym.kind, symbol_short);
+			let symbol_short = shorten_symbol(&symbol);
+			println!("  sym '{}' kind '{:?}' {}", sym.display_name, sym.kind, symbol_short);
 			for rel in &sym.relationships {
 				println!("    {:?}", rel);
 			}
@@ -104,10 +111,8 @@ fn dump_index(index: &Index) -> Result<(), StrErr> {
 		for occ in &doc.occurrences {
 			let sp = Span::from_scip_range(&path_arc, &occ.range)?;
 			let symbol = parse_symbol(&occ.symbol).unwrap();
-			let symbol_short = symbol.descriptors.iter()
-				.map(|s| s.name.clone())
-				.collect::<String>();
-			println!("  occ '{:?}' span '{}' roles {}", symbol_short, sp.start_display(), occ.symbol_roles);
+			let symbol_short = shorten_symbol(&symbol);
+			println!("  occ '{}' span '{}' roles {}", symbol_short, sp.start_display(), occ.symbol_roles);
 
 		}
 	}
