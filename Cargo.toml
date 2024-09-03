@@ -18,3 +18,6 @@ log = "0.4"
 pretty_env_logger = "0.4"
 rayon = "1.0"
 chashmap = "2.2"
+
+scip = "0.4"
+protobuf = "3.2"

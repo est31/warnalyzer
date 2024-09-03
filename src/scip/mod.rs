@@ -1,8 +1,8 @@
 use protobuf::Message;
-use scip::types::Index;
+use scip::{symbol::parse_symbol, types::{Index, SymbolRole}};
 
 use crate::{StrErr, Options};
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 pub struct AnalysisDb {
 	options :Options,
@@ -16,11 +16,110 @@ fn parse_scip_index(path: &Path) -> Result<Index, StrErr> {
 	Ok(index)
 }
 
+#[derive(Debug)]
+pub struct Span {
+	pub file: Arc<str>,
+	pub start_line: u32,
+	pub start_col: u32,
+	pub end_line: u32,
+	pub end_col: u32,
+}
+
+impl Span {
+	fn from_scip_range(file: &Arc<str>, range: &[i32]) -> Result<Span, StrErr> {
+		// https://docs.rs/scip/latest/scip/types/struct.Occurrence.html#structfield.range
+		let range_one_based = range.iter().map(|v| *v as u32 + 1).collect::<Vec<_>>();
+		let span = match &range_one_based[..] {
+			&[start_line, start_col, end_line, end_col] => {
+				Span {
+					file: file.clone(),
+					start_line,
+					start_col,
+					end_line,
+					end_col,
+				}
+			}
+			&[line, start_col, end_col] => {
+				Span {
+					file: file.clone(),
+					start_line: line,
+					start_col,
+					end_line: line,
+					end_col,
+				}
+			}
+			_ => {
+				Err(format!("range has wrong number of arguments: {}", range.len()))?
+			}
+		};
+		Ok(span)
+	}
+	fn start_display(&self) -> String {
+		format!("{}:{}:{}", self.file, self.start_line, self.start_col)
+	}
+}
+
+pub struct Roles(i32);
+
+impl Roles {
+	// https://docs.rs/scip/latest/scip/types/enum.SymbolRole.html
+	pub fn is_definition(&self) -> bool {
+		self.0 & SymbolRole::Definition as i32 > 0
+	}
+	pub fn is_import(&self) -> bool {
+		self.0 & SymbolRole::Import as i32 > 0
+	}
+	pub fn is_write_access(&self) -> bool {
+		self.0 & SymbolRole::WriteAccess as i32 > 0
+	}
+	pub fn is_read_access(&self) -> bool {
+		self.0 & SymbolRole::ReadAccess as i32 > 0
+	}
+	pub fn is_generated(&self) -> bool {
+		self.0 & SymbolRole::Generated as i32 > 0
+	}
+	pub fn is_test(&self) -> bool {
+		self.0 & SymbolRole::Test as i32 > 0
+	}
+	pub fn is_forward_definition(&self) -> bool {
+		self.0 & SymbolRole::ForwardDefinition as i32 > 0
+	}
+}
+
+fn dump_index(index: &Index) -> Result<(), StrErr> {
+	println!("index absolute path: {}", index.metadata.project_root);
+	for doc in &index.documents {
+		let path_arc: Arc<str> = Arc::from(doc.relative_path.clone().into_boxed_str());
+		println!("path: {}", doc.relative_path);
+		for sym in &doc.symbols {
+			let symbol = parse_symbol(&sym.symbol).unwrap();
+			let symbol_short = symbol.descriptors.iter()
+				.map(|s| s.name.clone())
+				.collect::<String>();
+			println!("  '{}' kind '{:?}' {}", sym.display_name, sym.kind, symbol_short);
+			for rel in &sym.relationships {
+				println!("    {:?}", rel);
+			}
+		}
+		for occ in &doc.occurrences {
+			let sp = Span::from_scip_range(&path_arc, &occ.range)?;
+			let symbol = parse_symbol(&occ.symbol).unwrap();
+			let symbol_short = symbol.descriptors.iter()
+				.map(|s| s.name.clone())
+				.collect::<String>();
+			println!("  occ '{:?}' span '{}' roles {}", symbol_short, sp.start_display(), occ.symbol_roles);
+
+		}
+	}
+	Ok(())
+}
+
 impl AnalysisDb {
 	pub fn from_path(path :&str, options :Options) -> Result<Self, StrErr> {
 		let path = Path::new(path);
 		let index = parse_scip_index(path)?;
 		println!("parsed scip file. {} many documents", index.documents.len());
+		dump_index(&index)?;
 		/*
 		let leaf_parsed = parse_analysis_metadata(&path)?;
 		let mut disambiguators = leaf_parsed.prelude.external_crates.iter()
