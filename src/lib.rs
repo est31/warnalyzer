@@ -2,6 +2,7 @@
 extern crate log;
 
 pub mod save_analysis;
+pub mod scip;
 
 use std::fmt::Display;
 

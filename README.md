@@ -9,6 +9,11 @@ The `dead_code` lint family of rustc is limited to one crate only and thus can't
 
 This tool, warnalyzer, provides unused code detection functionality for such multi-crate projects.
 
+### Usage (scip backend)
+
+* Navigate to your project and do `rust-analyzer scip .` to generate the `index.scip` file.
+* Then, from this repo, do `cargo run <path-to-scip>`.
+
 ### Usage
 
 * Navigate to the project you want to analyze and run `RUSTFLAGS="-Z save-analysis" cargo +nightly check`.

@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use warnalyzer::save_analysis::db::AnalysisDb;
 use warnalyzer::{Options, StrErr};
 
 fn main() -> Result<(), StrErr> {
@@ -11,9 +10,18 @@ fn main() -> Result<(), StrErr> {
 	let options = Options {
 		recurse : false,
 	};
-	let db = AnalysisDb::from_path(&path, options)?;
-	for ud in db.get_unused_defs() {
-		println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
+	let is_json = path.ends_with(".json");
+	let is_scip = path.ends_with(".scip");
+	if is_json {
+		let db = warnalyzer::save_analysis::db::AnalysisDb::from_path(&path, options)?;
+		for ud in db.get_unused_defs() {
+			println!("{}: unused {} '{}'", ud.span.display_str(), ud.kind, ud.name);
+		}
+	} else if is_scip {
+		let db = warnalyzer::scip::AnalysisDb::from_path(&path, options)?;
+		// TODO
+	} else {
+		eprintln!("Path '{path}' has unknown extension");
 	}
 
 	Ok(())
