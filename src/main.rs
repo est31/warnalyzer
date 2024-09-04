@@ -19,6 +19,7 @@ fn main() -> Result<(), StrErr> {
 		}
 	} else if is_scip {
 		let db = warnalyzer::scip::AnalysisDb::from_path(&path, options)?;
+		db.dump_index()?;
 		// TODO
 	} else {
 		eprintln!("Path '{path}' has unknown extension");

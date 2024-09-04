@@ -198,9 +198,13 @@ impl AnalysisDb {
 		Ok(AnalysisDb {
 			options,
 			root,
+			index,
 		})
 	}
-	/*pub fn get_unused_defs(&self) -> impl Iterator<Item=&AbsDef> {
+	pub fn dump_index(&self) -> Result<(), StrErr> {
+		dump_index(&self.index)
+	}
+	/*pub fn get_unused_defs(&self) -> impl Iterator<Item=AbsDef> {
 		let mut used_defs = HashSet::new();
 		for (_rid, r) in self.refs.iter() {
 			used_defs.insert(r.ref_id);
