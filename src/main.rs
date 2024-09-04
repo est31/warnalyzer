@@ -20,7 +20,9 @@ fn main() -> Result<(), StrErr> {
 	} else if is_scip {
 		let db = warnalyzer::scip::AnalysisDb::from_path(&path, options)?;
 		db.dump_index()?;
-		// TODO
+		for ud in db.get_unused_defs() {
+			println!("{}: unused {:?} '{:?}'", ud.span.display_str(), ud.kind, ud.name);
+		}
 	} else {
 		eprintln!("Path '{path}' has unknown extension");
 	}

@@ -2,11 +2,12 @@ use protobuf::Message;
 use scip::{symbol::parse_symbol, types::{Index, Symbol, SymbolRole}};
 
 use crate::{StrErr, Options};
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{collections::HashSet, path::{Path, PathBuf}, sync::Arc};
 
 pub struct AnalysisDb {
 	options :Options,
 	root :Option<PathBuf>,
+	index: Index,
 }
 
 fn parse_scip_index(path: &Path) -> Result<Index, StrErr> {
@@ -54,7 +55,7 @@ impl Span {
 		};
 		Ok(span)
 	}
-	fn start_display(&self) -> String {
+	pub fn display_str(&self) -> String {
 		format!("{}:{}:{}", self.file, self.start_line, self.start_col)
 	}
 }
@@ -112,11 +113,17 @@ fn dump_index(index: &Index) -> Result<(), StrErr> {
 			let sp = Span::from_scip_range(&path_arc, &occ.range)?;
 			let symbol = parse_symbol(&occ.symbol).unwrap();
 			let symbol_short = shorten_symbol(&symbol);
-			println!("  occ '{}' span '{}' roles {}", symbol_short, sp.start_display(), occ.symbol_roles);
+			println!("  occ '{}' span '{}' roles {}", symbol_short, sp.display_str(), occ.symbol_roles);
 
 		}
 	}
 	Ok(())
+}
+
+pub struct AbsDef {
+	pub span: Span,
+	pub name: Option<String>,
+	pub kind: Option<String>,
 }
 
 impl AnalysisDb {
@@ -124,71 +131,6 @@ impl AnalysisDb {
 		let path = Path::new(path);
 		let index = parse_scip_index(path)?;
 		println!("parsed scip file. {} many documents", index.documents.len());
-		dump_index(&index)?;
-		/*
-		let leaf_parsed = parse_analysis_metadata(&path)?;
-		let mut disambiguators = leaf_parsed.prelude.external_crates.iter()
-			.map(|v| v.id.disambiguator)
-			.collect::<HashSet<_>>();
-		disambiguators.insert(leaf_parsed.prelude.crate_id.disambiguator);
-		let dir_path = path.parent().unwrap();
-		let mut crates = HashMap::new();
-		let mut covered_crates = HashSet::new();
-		let v :Vec<_> = std::fs::read_dir(dir_path)?
-			.collect::<Vec<_>>()
-			.into_par_iter().map(|entry| -> Result<_, StrErr> {
-				let entry = entry?;
-				let path = entry.path();
-				let metadata = parse_analysis_metadata(&path)?;
-				let disambiguator = metadata.prelude.crate_id.disambiguator;
-				// Ignore results from other compile runs
-				if !disambiguators.contains(&disambiguator) {
-					return Ok(None);
-				}
-
-				// Ignore stuff from crates.io or git deps.
-				// Just focus on path deps for now.
-				if metadata.compilation.directory.contains(".cargo/registry/src/github.com") ||
-						metadata.compilation.directory.contains(".cargo/git/") {
-					info!("i> {}", path.to_str().unwrap());
-					return Ok(None);
-				}
-				info!("p> {}", path.to_str().unwrap());
-				let file_parsed = parse_save_analysis(&path)?;
-				Ok(Some((disambiguator, file_parsed)))
-		}).collect();
-		for v in v.into_iter() {
-			let v = v?;
-			if let Some((disambiguator, file_parsed)) = v {
-				covered_crates.insert(disambiguator);
-				crates.insert(disambiguator, file_parsed);
-			}
-		}
-		let mut defs = HashMap::new();
-		for (_dis, c) in crates.iter() {
-			for v in c.defs.iter() {
-				let v = v.clone_map(|w| c.prelude.disambiguator_for_id(*w));
-				defs.insert(v.id, v);
-			}
-		}
-		let mut refs = HashMap::new();
-		for (_dis, c) in crates.iter() {
-			for v in c.refs.iter() {
-				let v = v.clone_map(|w| c.prelude.disambiguator_for_id(*w));
-				refs.insert(v.ref_id, v);
-			}
-		}
-		//println!("{:#?}", defs);
-		//println!("{:#?}", refs);
-
-		Ok(AnalysisDb {
-			options,
-			root,
-			covered_crates,
-			defs,
-			refs,
-		})
-		*/
 		let root = path.parent()
 		.and_then(|p| p.parent())
 		.and_then(|p| p.parent())
@@ -204,7 +146,10 @@ impl AnalysisDb {
 	pub fn dump_index(&self) -> Result<(), StrErr> {
 		dump_index(&self.index)
 	}
-	/*pub fn get_unused_defs(&self) -> impl Iterator<Item=AbsDef> {
+	pub fn get_unused_defs(&self) -> impl Iterator<Item=AbsDef> {
+		let unused_defs = HashSet::new();
+		unused_defs.into_iter()
+		/*
 		let mut used_defs = HashSet::new();
 		for (_rid, r) in self.refs.iter() {
 			used_defs.insert(r.ref_id);
@@ -269,5 +214,6 @@ impl AnalysisDb {
 		}).collect::<Vec<_>>();
 		unused_defs.sort();
 		unused_defs.into_iter()
-	}*/
+		*/
+	}
 }
