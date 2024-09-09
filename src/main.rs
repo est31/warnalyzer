@@ -45,7 +45,7 @@ fn report_scip(path: &str, options: Options) -> Result<(), StrErr> {
 	for ud in db.get_unused_defs() {
 		let kind = ud.kind.map(|s| format!("{s:?}")).unwrap_or_else(|| "<unknown>".to_owned());
 		let name = ud.name.unwrap_or_default();
-		println!("{}: unused {:?} '{}'", ud.span.display_str(), kind, name);
+		println!("{}: unused {} '{}'", ud.span.display_str(), kind, name);
 	}
 	Ok(())
 }
