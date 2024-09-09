@@ -1,14 +1,9 @@
 use protobuf::Message;
-use scip::{symbol::parse_symbol, types::{Index, Symbol, SymbolRole}};
+use scip::{symbol::parse_symbol, types::{symbol_information, Index, Symbol, SymbolRole}};
 
 use crate::{StrErr, Options};
-use std::{collections::HashSet, path::{Path, PathBuf}, sync::Arc};
-
-pub struct AnalysisDb {
-	options :Options,
-	root :Option<PathBuf>,
-	index: Index,
-}
+use core::{cmp::Ordering, fmt::{Debug, Formatter}, write};
+use std::{collections::{HashMap, HashSet}, path::{Path, PathBuf}, sync::Arc};
 
 fn parse_scip_index(path: &Path) -> Result<Index, StrErr> {
 	println!("parsing {path:?}");
@@ -17,7 +12,7 @@ fn parse_scip_index(path: &Path) -> Result<Index, StrErr> {
 	Ok(index)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Span {
 	pub file: Arc<str>,
 	pub start_line: u32,
@@ -98,6 +93,14 @@ fn shorten_symbol(symbol: &Symbol) -> String {
 
 fn dump_index(index: &Index) -> Result<(), StrErr> {
 	println!("index absolute path: {}", index.metadata.project_root);
+	for sym in &index.external_symbols {
+		let symbol = parse_symbol(&sym.symbol).unwrap();
+		let symbol_short = shorten_symbol(&symbol);
+		println!("  ext sym '{}' kind '{:?}' {}", sym.display_name, sym.kind, symbol_short);
+		for rel in &sym.relationships {
+			println!("    {:?}", rel);
+		}
+	}
 	for doc in &index.documents {
 		let path_arc: Arc<str> = Arc::from(doc.relative_path.clone().into_boxed_str());
 		println!("path: {}", doc.relative_path);
@@ -120,100 +123,115 @@ fn dump_index(index: &Index) -> Result<(), StrErr> {
 	Ok(())
 }
 
+#[derive(Clone, PartialEq, Eq, Copy)]
+pub struct Kind(symbol_information::Kind);
+
+impl Kind {
+	pub fn kind_enum(&self) -> symbol_information::Kind {
+		self.0
+	}
+}
+impl Debug for Kind {
+	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		write!(f, "{:?}", self.0)
+	}
+}
+impl PartialOrd for Kind {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		(self.0 as i32).partial_cmp(&(other.0 as i32))
+	}
+}
+impl Ord for Kind {
+	fn cmp(&self, other: &Self) -> Ordering {
+		(self.0 as i32).cmp(&(other.0 as i32))
+	}
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct AbsDef {
 	pub span: Span,
 	pub name: Option<String>,
-	pub kind: Option<String>,
+	pub kind: Option<Kind>,
+}
+
+pub struct AnalysisDb {
+	options :Options,
+	root :Option<PathBuf>,
+	index: Index,
+	definitions: HashMap<String, AbsDef>,
 }
 
 impl AnalysisDb {
 	pub fn from_path(path :&str, options :Options) -> Result<Self, StrErr> {
 		let path = Path::new(path);
 		let index = parse_scip_index(path)?;
-		println!("parsed scip file. {} many documents", index.documents.len());
+		info!("parsed scip file. found {} documents", index.documents.len());
 		let root = path.parent()
-		.and_then(|p| p.parent())
-		.and_then(|p| p.parent())
-		.and_then(|p| p.parent())
-		.and_then(|p| p.parent())
-		.map(|p| p.to_owned());
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.and_then(|p| p.parent())
+			.map(|p| p.to_owned());
+		let mut definitions = HashMap::new();
+		for doc in &index.documents {
+			let sym_name_kinds = doc.symbols.iter()
+				.map(|sym| {
+					(sym.symbol.clone(), (sym.display_name.clone(), sym.kind.enum_value().ok()))
+				})
+				.collect::<HashMap<_,_>>();
+			let path_arc: Arc<str> = Arc::from(doc.relative_path.clone().into_boxed_str());
+			for occ in &doc.occurrences {
+				if occ.symbol_roles & SymbolRole::Definition as i32 == 0 {
+					continue;
+				}
+				let name_kind = sym_name_kinds.get(&occ.symbol);
+				let abs_def = AbsDef {
+					span: Span::from_scip_range(&path_arc, &occ.range)?,
+					name: name_kind.map(|(name, _kind)| name.clone()),
+					kind: name_kind.and_then(|(_name, kind)| kind.map(|kind| Kind(kind)).clone()),
+				};
+				let symbol = parse_symbol(&occ.symbol).unwrap();
+				trace!("Adding def {}", shorten_symbol(&symbol));
+				definitions.insert(occ.symbol.clone(), abs_def);
+			}
+		}
 		Ok(AnalysisDb {
 			options,
 			root,
 			index,
+			definitions,
 		})
 	}
 	pub fn dump_index(&self) -> Result<(), StrErr> {
 		dump_index(&self.index)
 	}
 	pub fn get_unused_defs(&self) -> impl Iterator<Item=AbsDef> {
-		let unused_defs = HashSet::new();
-		unused_defs.into_iter()
-		/*
 		let mut used_defs = HashSet::new();
-		for (_rid, r) in self.refs.iter() {
-			used_defs.insert(r.ref_id);
+		for doc in &self.index.documents {
+			for occ in &doc.occurrences {
+				if occ.symbol_roles & SymbolRole::Definition as i32 != 0 {
+					// Definitions we skip, as those don't count as use
+					continue;
+				}
+				let symbol = parse_symbol(&occ.symbol).unwrap();
+				trace!("Adding used def {}", shorten_symbol(&symbol));
+				used_defs.insert(occ.symbol.clone());
+			}
 		}
-		let root = self.root.clone().unwrap_or_else(PathBuf::new);
-		let mute_spans_cache = MuteSpansCache::new(root.as_path());
-		let mut unused_defs = self.defs.par_iter().filter_map(|(did, d)| {
-			if used_defs.contains(&did) {
-				return None;
-			}
-			// Anything starting with _ can be unused without warning.
-			if d.name.starts_with("_") {
-				return None;
-			}
-			// Self may be unused without warning.
-			if d.kind == "Local" && d.name == "self" {
-				return None;
-			}
-			// Forbid locals for now as
-			// a) the rustc lints should already catch them and
-			// b) there is a false positive bug that affects them:
-			// https://github.com/rust-lang/rust/issues/61385
-			if d.kind == "Local" {
-				return None;
-			}
-			// There is an id mismatch bug in rustc's save-analysis
-			// output.
-			// https://github.com/rust-lang/rust/issues/61302
-			if d.kind == "TupleVariant" {
-				return None;
-			}
-			if let Some(decl_id) = d.decl_id {
-				if self.options.recurse {
-					// Record implementations of traits etc as used if the trait's
-					// function is used
-
-					// Whether the trait's fn is used somewhere
-					let fn_in_trait_used = used_defs.contains(&decl_id);
-					// Whether the trait is from another crate
-					let fn_in_trait_foreign = !self.covered_crates.contains(&decl_id.krate);
-					if fn_in_trait_used || fn_in_trait_foreign {
-						return None;
-					}
-				} else {
-					// Don't do any recursion
-					return None;
+		let mut unused_defs = self.definitions.iter()
+			.filter(|(sym, def)| {
+				if used_defs.get(sym.as_str()).is_some() {
+					return false;
 				}
-			}
-			if let Some(parent) = d.parent.as_ref().and_then(|p| self.defs.get(p)) {
-				// It seems that rustc doesn't emit any refs for assoc. types
-				if parent.kind == "Trait" && d.kind == "Type" {
-					return None;
+				// Anything starting with _ can be unused without warning.
+				if def.name.as_ref().map(|name| name.starts_with("_")).unwrap_or_default() {
+					return false;
 				}
-			}
-			// Macros have poor save-analysis support atm:
-			// https://github.com/rust-lang/rust/issues/49178#issuecomment-375454487
-			// Most importantly, their spans are not emitted.
-			if mute_spans_cache.is_in_macro(d.id.krate, &d.span).unwrap_or(false) {
-				return None;
-			}
-			Some(d)
-		}).collect::<Vec<_>>();
+				true
+			})
+			.map(|(_sym, def)| def.clone())
+			.collect::<Vec<_>>();
 		unused_defs.sort();
 		unused_defs.into_iter()
-		*/
 	}
 }
