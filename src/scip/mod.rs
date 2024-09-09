@@ -3,7 +3,7 @@ use scip::{symbol::parse_symbol, types::{symbol_information, Index, Symbol, Symb
 
 use crate::{StrErr, Options};
 use core::{cmp::Ordering, fmt::{Debug, Formatter}, write};
-use std::{collections::{HashMap, HashSet}, path::{Path, PathBuf}, sync::Arc};
+use std::{collections::{HashMap, HashSet}, path::{Path, PathBuf}, process::Command, sync::Arc};
 
 fn parse_scip_index(path: &Path) -> Result<Index, StrErr> {
 	println!("parsing {path:?}");
@@ -234,4 +234,18 @@ impl AnalysisDb {
 		unused_defs.sort();
 		unused_defs.into_iter()
 	}
+}
+
+pub fn run_scip(dir: &Path, output_file: &Path) -> Result<(), StrErr> {
+	let mut process = Command::new("rust-analyzer")
+		.arg("scip")
+		.arg(dir)
+		.arg("--output")
+		.arg(output_file)
+		.spawn()?;
+	let result = process.wait()?;
+	if !result.success() {
+		return Err(StrErr(format!("rust-analyzer command failed")));
+	}
+	Ok(())
 }
