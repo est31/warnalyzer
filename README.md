@@ -1,6 +1,3 @@
-> [!NOTE]
-> Warnalyzer depends on the nightly feature `save-analysis` which was [removed](https://github.com/rust-lang/rust/pull/101841#event-8537301365) in February 2023. In order to use warnalyzer, use a nightly Rust version before February 16, 2023. ([Issue](https://github.com/est31/warnalyzer/issues/9))
-
 ## Warnalyzer
 
 Remove unused code from multi-crate Rust projects.
@@ -11,10 +8,21 @@ This tool, warnalyzer, provides unused code detection functionality for such mul
 
 ### Usage (scip backend)
 
-* Navigate to your project and do `rust-analyzer scip .` to generate the `index.scip` file.
-* Then, from this repo, do `cargo run <path-to-scip>`.
+This backend supports stable, but it requires `rust-analyzer` to be available. Obtain it through `rustup component add rust-analyzer`.
 
-### Usage
+* To run `warnalyzer`, invoke it via `warnalyzer <path-to-project-dir>`. It will generate the needed `.scip` file in the target directory.
+* Alternatively, you can generate an `scip` file manually, via `rust-analyzer scip` for example, and pass it that file instead of the path.
+
+#### Limitations
+
+* The logic to find the `target` directory into which to put the `.scip` files is a bit rudimentary. Ideally we would somehow involve cargo in finding out where the `target` directory is.
+
+### save-analysis backend
+
+> [!NOTE]
+> The save-analysis backend depends on the nightly feature `save-analysis` which was [removed](https://github.com/rust-lang/rust/pull/101841#event-8537301365) in February 2023. In order to use warnalyzer, use a nightly Rust version before February 16, 2023. ([Issue](https://github.com/est31/warnalyzer/issues/9))
+
+#### Usage (save-analysis backend)
 
 * Navigate to the project you want to analyze and run `RUSTFLAGS="-Z save-analysis" cargo +nightly check`.
 * This command puts save analysis data into a path like `target/debug/deps/save-analysis/cratename-longhash.json`.
@@ -22,12 +30,7 @@ This tool, warnalyzer, provides unused code detection functionality for such mul
 * It will list any items that it thinks weren't used.
 * Make sure that you chose the json of the leaf crate. Using any other json file won't give you the full list of unused code.
 
-### Requirements
-
-Nightly rust is required, as [save-analysis is unstable](https://github.com/rust-lang/rust/issues/43606).
-Despite the name, warnalyzer [does not use rust-analyzer](https://github.com/rust-analyzer/rust-analyzer) (yet).
-
-### Known bugs
+#### Known bugs
 
 It's still early on. There are a couple of bugs of the tool.
 
@@ -39,7 +42,7 @@ These are the false positives known to me:
 * `#[allow(dead_code)]` has no effect
 * Entry points (main function, etc) [are detected as unused](https://github.com/est31/warnalyzer/issues/6)
 
-### Other bugs
+#### Other bugs
 
 * Enum variants are not recognized (worked around in the code but [it would be cool to have the rustc bug fixed](https://github.com/rust-lang/rust/issues/61302))
 * Uses in enum struct variants are not recognized as such ([upstream bug](https://github.com/rust-lang/rust/issues/61385))
